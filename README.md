@@ -68,10 +68,13 @@ In Supabase, go to **Authentication > Sign In / Providers > Email** and turn **C
 npx supabase login
 npx supabase link --project-ref <your-project-ref>
 npx supabase secrets set GOOGLE_CLIENT_ID=<client id> GOOGLE_CLIENT_SECRET=<client secret>
-npx supabase functions deploy save-google-token --use-api --no-verify-jwt
-npx supabase functions deploy calendar-busy --use-api --no-verify-jwt
-npx supabase functions deploy username-sign-in --use-api --no-verify-jwt
+npx supabase functions deploy --remote=<your-project-ref> --use-api --no-verify-jwt
 ```
+
+After the first setup, GitHub deploys the functions automatically whenever
+`supabase/functions` changes on `main` (`.github/workflows/deploy-functions.yml`).
+It needs one repository secret, `SUPABASE_ACCESS_TOKEN`, created at
+supabase.com/dashboard/account/tokens.
 
 ## Web version
 

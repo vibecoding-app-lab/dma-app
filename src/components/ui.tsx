@@ -91,6 +91,62 @@ export function ErrorText({ message }: { message: string | null }) {
   return <Text style={styles.error}>{message}</Text>;
 }
 
+/** A small coloured label, e.g. a lesson's status. */
+export function Pill({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'good' | 'waiting' | 'bad' }) {
+  const palette = {
+    neutral: { bg: '#EEEEEE', fg: colors.muted },
+    good: { bg: '#E3F3EA', fg: colors.success },
+    waiting: { bg: '#FFF4D6', fg: '#8A5A00' },
+    bad: { bg: '#FBE4E7', fg: colors.brandDark },
+  }[tone];
+  return (
+    <View style={{ alignSelf: 'flex-start', backgroundColor: palette.bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
+      <Text style={{ color: palette.fg, fontSize: 13, fontWeight: '600' }}>{label}</Text>
+    </View>
+  );
+}
+
+/** A row of options where one is chosen, e.g. 1 hour / 2 hours. */
+export function Choice<T extends string | number>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T | null;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={String(o.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            onPress={() => onChange(o.value)}
+            style={{
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: on ? colors.brand : colors.border,
+              backgroundColor: on ? colors.brand : colors.surface,
+            }}
+          >
+            <Text style={{ color: on ? '#fff' : colors.ink, fontWeight: '600', fontSize: 15 }}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function SectionLabel({ children }: { children: ReactNode }) {
+  return <Text style={{ fontSize: 13, fontWeight: '700', color: colors.muted, letterSpacing: 0.3 }}>{children}</Text>;
+}
+
 export function Loading() {
   return (
     <View style={[styles.screen, styles.center]}>

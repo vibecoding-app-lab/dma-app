@@ -26,3 +26,12 @@ verify_jwt = false
 
 [functions.username-sign-in]
 verify_jwt = false
+
+[functions.available-slots]
+verify_jwt = false
+
+[functions.calendar-events]
+verify_jwt = false
+
+[functions.booking-action]
+verify_jwt = false

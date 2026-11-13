@@ -1,50 +1,71 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 
-import { Button, Card, ErrorText, Screen, Subtitle, Title, colors } from '@/components/ui';
+import { Button, Card, ErrorText, Pill, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { fetchCalendarBusy, signInWithGoogleCalendar } from '@/lib/google';
+import {
+  type Booking,
+  type CalendarEvent,
+  bookingAction,
+  dayLabel,
+  fetchCalendarEvents,
+  lessonLabel,
+  timeLabel,
+} from '@/lib/booking';
+import { signInWithGoogleCalendar } from '@/lib/google';
+import { confirmAction, notify } from '@/lib/notify';
 import { supabase } from '@/lib/supabase';
-import type { BusyBlock, Instructor } from '@/lib/types';
+import type { Instructor } from '@/lib/types';
 
-function formatBlock(block: BusyBlock) {
-  const start = new Date(block.start);
-  const end = new Date(block.end);
-  const day = start.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-  const time = (d: Date) => d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  return `${day}, ${time(start)} to ${time(end)}`;
+function studentName(b: Booking) {
+  return b.student?.full_name ?? b.student?.email ?? 'Student';
 }
 
 export default function InstructorHome() {
   const { profile, signOut } = useAuth();
   const [instructor, setInstructor] = useState<Instructor | null>(null);
-  const [busy, setBusy] = useState<BusyBlock[] | null>(null);
-  const [checking, setChecking] = useState(false);
+  const [hasHours, setHasHours] = useState(true);
+  const [lessons, setLessons] = useState<Booking[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[] | null>(null);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const loadInstructor = useCallback(async () => {
+  const load = useCallback(async () => {
     if (!profile) return;
-    const { data } = await supabase.from('instructors').select('*').eq('profile_id', profile.id).single();
-    setInstructor(data ?? null);
+    const [{ data: inst }, { count }, { data: bookings }] = await Promise.all([
+      supabase.from('instructors').select('*').eq('profile_id', profile.id).single(),
+      supabase.from('availability_rules').select('id', { count: 'exact', head: true }).eq('instructor_id', profile.id),
+      supabase
+        .from('bookings')
+        .select('*, student:profiles!bookings_student_id_fkey(full_name, phone, email)')
+        .eq('instructor_id', profile.id)
+        .in('status', ['pending', 'confirmed'])
+        .gte('ends_at', new Date().toISOString())
+        .order('starts_at'),
+    ]);
+    setInstructor(inst ?? null);
+    setHasHours((count ?? 0) > 0);
+    setLessons((bookings as Booking[]) ?? []);
   }, [profile]);
 
   useFocusEffect(
     useCallback(() => {
-      loadInstructor();
-    }, [loadInstructor]),
+      load();
+    }, [load]),
   );
 
-  async function checkCalendar() {
-    setChecking(true);
+  async function showCalendar() {
+    setLoadingEvents(true);
     setError(null);
     try {
-      setBusy(await fetchCalendarBusy(7));
+      setEvents(await fetchCalendarEvents(7));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not read your calendar.');
     } finally {
-      setChecking(false);
+      setLoadingEvents(false);
     }
   }
 
@@ -53,7 +74,7 @@ export default function InstructorHome() {
     setError(null);
     try {
       await signInWithGoogleCalendar();
-      await loadInstructor();
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not connect Google Calendar.');
     } finally {
@@ -61,51 +82,130 @@ export default function InstructorHome() {
     }
   }
 
+  async function answer(b: Booking, action: 'accept' | 'decline') {
+    setBusyId(b.id + action);
+    try {
+      await bookingAction({ action, booking_id: b.id });
+      await load();
+      if (action === 'accept') notify('Lesson confirmed', `${studentName(b)}, ${lessonLabel(b)}. Added to your Google Calendar.`);
+    } catch (e) {
+      notify('Something went wrong', e instanceof Error ? e.message : 'Please try again.');
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function decline(b: Booking) {
+    confirmAction('Decline this request?', `${studentName(b)}, ${lessonLabel(b)}`, 'Decline', () => answer(b, 'decline'));
+  }
+
   const connected = Boolean(instructor?.google_connected_at);
+  const requests = lessons.filter((b) => b.status === 'pending');
+  const confirmed = lessons.filter((b) => b.status === 'confirmed');
+
+  // Calendar events grouped by day.
+  const eventDays = new Map<string, CalendarEvent[]>();
+  for (const e of events ?? []) {
+    const key = dayLabel(e.start);
+    eventDays.set(key, [...(eventDays.get(key) ?? []), e]);
+  }
 
   return (
     <Screen>
       <Title>Hi {profile?.full_name?.split(' ')[0] ?? 'there'}</Title>
 
-      <Card>
-        <Text style={{ fontSize: 13, fontWeight: '700', color: colors.muted }}>GOOGLE CALENDAR</Text>
-        <Text style={{ fontSize: 17, fontWeight: '600', color: connected ? colors.success : colors.brandDark }}>
-          {connected ? 'Connected' : 'Not connected'}
-        </Text>
-        <Subtitle>
-          {connected
-            ? 'Students will not be offered times that are busy on your calendar.'
-            : 'Connect your calendar so students only see times you are free.'}
-        </Subtitle>
-        {connected ? (
-          <Button label="Show my busy times this week" variant="secondary" onPress={checkCalendar} loading={checking} />
-        ) : (
+      {!connected ? (
+        <Card>
+          <SectionLabel>GOOGLE CALENDAR</SectionLabel>
+          <Subtitle>Connect your calendar so students only see times you are free.</Subtitle>
           <Button label="Connect Google Calendar" onPress={reconnect} loading={reconnecting} />
-        )}
-        {busy ? (
-          <View style={{ gap: 4, marginTop: 4 }}>
-            {busy.length === 0 ? (
-              <Subtitle>Nothing busy in the next 7 days.</Subtitle>
-            ) : (
-              busy.map((block) => (
-                <Text key={block.start} style={{ fontSize: 15 }}>
-                  {formatBlock(block)}
-                </Text>
-              ))
-            )}
+        </Card>
+      ) : null}
+
+      {!hasHours ? (
+        <Card>
+          <SectionLabel>WORKING HOURS</SectionLabel>
+          <Subtitle>Students can't book until you set the hours you teach.</Subtitle>
+          <Button label="Set working hours" onPress={() => router.push('/instructor/hours')} />
+        </Card>
+      ) : null}
+
+      <Card>
+        <SectionLabel>LESSON REQUESTS ({requests.length})</SectionLabel>
+        {requests.length === 0 ? <Subtitle>No requests waiting.</Subtitle> : null}
+        {requests.map((b) => (
+          <View key={b.id} style={{ gap: 6, paddingVertical: 8, borderTopWidth: 1, borderColor: colors.border }}>
+            <Text style={{ fontSize: 16, fontWeight: '700' }}>{studentName(b)}</Text>
+            <Text style={{ fontSize: 15 }}>{lessonLabel(b)}</Text>
+            {b.pickup_location ? <Subtitle>Pickup: {b.pickup_location}</Subtitle> : null}
+            {b.notes ? <Subtitle>Note: {b.notes}</Subtitle> : null}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Button label="Accept" onPress={() => answer(b, 'accept')} loading={busyId === b.id + 'accept'} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button label="Decline" variant="secondary" onPress={() => decline(b)} loading={busyId === b.id + 'decline'} />
+              </View>
+            </View>
+            <Pressable onPress={() => router.push(`/instructor/lesson/${b.id}`)}>
+              <Text style={{ color: colors.brand, fontWeight: '600' }}>Suggest a different time</Text>
+            </Pressable>
           </View>
-        ) : null}
+        ))}
       </Card>
 
       <Card>
-        <Text style={{ fontSize: 17, fontWeight: '600' }}>My students</Text>
-        <Subtitle>Add the students you teach so they can book with you.</Subtitle>
-        <Button label="Manage students" variant="secondary" onPress={() => router.push('/instructor/students')} />
+        <SectionLabel>UPCOMING LESSONS</SectionLabel>
+        {confirmed.length === 0 ? <Subtitle>No confirmed lessons yet.</Subtitle> : null}
+        {confirmed.map((b) => (
+          <Pressable
+            key={b.id}
+            onPress={() => router.push(`/instructor/lesson/${b.id}`)}
+            style={{ gap: 4, paddingVertical: 8, borderTopWidth: 1, borderColor: colors.border }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: '600' }}>{studentName(b)}</Text>
+            <Text style={{ fontSize: 15 }}>{lessonLabel(b)}</Text>
+            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+              <Pill label="Confirmed" tone="good" />
+              {b.student?.phone ? (
+                <Text style={{ color: colors.brand }} onPress={() => Linking.openURL(`tel:${b.student?.phone}`)}>
+                  Call
+                </Text>
+              ) : null}
+              <Text style={{ color: colors.brand, fontWeight: '600' }}>Edit or cancel</Text>
+            </View>
+          </Pressable>
+        ))}
       </Card>
 
+      {connected ? (
+        <Card>
+          <SectionLabel>MY CALENDAR, NEXT 7 DAYS</SectionLabel>
+          {!events ? (
+            <Button label="Show my calendar" variant="secondary" onPress={showCalendar} loading={loadingEvents} />
+          ) : events.length === 0 ? (
+            <Subtitle>Nothing on your calendar in the next 7 days.</Subtitle>
+          ) : (
+            [...eventDays.entries()].map(([day, list]) => (
+              <View key={day} style={{ gap: 2, paddingVertical: 6 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700' }}>{day}</Text>
+                {list.map((e) => (
+                  <Text key={e.id} style={{ fontSize: 15, color: e.busy ? colors.ink : colors.muted }}>
+                    {e.allDay ? 'All day' : `${timeLabel(e.start)} to ${timeLabel(e.end)}`}  {e.summary}
+                    {e.busy ? '' : ' (free)'}
+                  </Text>
+                ))}
+              </View>
+            ))
+          )}
+        </Card>
+      ) : null}
+
       <Card>
-        <Text style={{ fontSize: 17, fontWeight: '600' }}>Lesson requests</Text>
-        <Subtitle>Accepting, editing and cancelling lessons is coming in the next update.</Subtitle>
+        <SectionLabel>SETTINGS</SectionLabel>
+        <Button label="Working hours" variant="secondary" onPress={() => router.push('/instructor/hours')} />
+        <Button label="My students" variant="secondary" onPress={() => router.push('/instructor/students')} />
       </Card>
 
       <ErrorText message={error} />
