@@ -1,6 +1,7 @@
 import { makeRedirectUri } from 'expo-auth-session';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 
 import { supabase } from './supabase';
 import type { BusyBlock } from './types';
@@ -37,17 +38,22 @@ const redirectTo = makeRedirectUri({ scheme: 'dmaapp', path: 'auth/callback' });
  * busy times and write lessons to the instructor's calendar.
  */
 export async function signInWithGoogleCalendar(): Promise<void> {
+  // On the website, phone browsers (iPhone Safari especially) block sign-in
+  // pop-ups, so the whole tab goes to Google and comes back to /auth/callback,
+  // which finishes the sign-in with finishGoogleSignIn().
+  const onWeb = Platform.OS === 'web';
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo,
       scopes: CALENDAR_SCOPES,
-      skipBrowserRedirect: true,
+      skipBrowserRedirect: !onWeb,
       // offline + consent makes Google return a refresh token every time.
       queryParams: { access_type: 'offline', prompt: 'consent' },
     },
   });
   if (error) throw error;
+  if (onWeb) return; // the browser is now leaving for Google
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
   if (result.type !== 'success') {
@@ -56,7 +62,14 @@ export async function signInWithGoogleCalendar(): Promise<void> {
 
   const code = new URL(result.url).searchParams.get('code');
   if (!code) throw new Error('Google sign-in did not return a code');
+  await finishGoogleSignIn(code);
+}
 
+/**
+ * Turns the code Google sent back into a session, then hands the Google
+ * refresh token to the server so it can read and write the calendar.
+ */
+export async function finishGoogleSignIn(code: string): Promise<void> {
   const { data: exchanged, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
   if (exchangeError) throw exchangeError;
 
