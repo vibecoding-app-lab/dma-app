@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -10,7 +11,7 @@ import { type AppNotification, dismissNotifications, fetchNotifications, notific
  * Checks every 20 seconds and whenever the person comes back to the app.
  * `onChange` reloads the screen's lessons at the same moments.
  */
-export function Updates({ onChange }: { onChange?: () => void }) {
+export function Updates({ onChange, lessonPath }: { onChange?: () => void; lessonPath: string }) {
   const [items, setItems] = useState<AppNotification[]>([]);
 
   const load = useCallback(async () => {
@@ -62,12 +63,20 @@ export function Updates({ onChange }: { onChange?: () => void }) {
           style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: i ? 1 : 0, borderColor: '#F3D3D8' }}
         >
           <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand, marginTop: 6 }} />
-          <View style={{ flex: 1, gap: 2 }}>
+          <Pressable
+            style={{ flex: 1, gap: 2 }}
+            disabled={!n.booking_id}
+            onPress={() => {
+              dismiss([n.id]);
+              router.push(`${lessonPath}/${n.booking_id}` as never);
+            }}
+          >
             <Text style={{ fontSize: 16, color: colors.ink, fontWeight: '600', lineHeight: 22 }}>{notificationText(n.message)}</Text>
             <Text style={{ fontSize: 12, color: colors.muted }}>
               {new Date(n.created_at).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}
+              {n.booking_id ? '  ·  Tap to open' : ''}
             </Text>
-          </View>
+          </Pressable>
           <Pressable onPress={() => dismiss([n.id])} accessibilityLabel="Dismiss" hitSlop={10}>
             <Text style={{ fontSize: 20, color: colors.muted }}>×</Text>
           </Pressable>

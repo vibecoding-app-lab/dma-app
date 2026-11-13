@@ -121,7 +121,7 @@ export default function InstructorHome() {
       <Title>Hi {profile?.full_name?.split(' ')[0] ?? 'there'}</Title>
       {profile?.username ? <Subtitle>@{profile.username}</Subtitle> : null}
 
-      <Updates onChange={load} />
+      <Updates onChange={load} lessonPath="/instructor/lesson" />
 
       {!connected ? (
         <Card>

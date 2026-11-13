@@ -25,20 +25,33 @@ export function totalLessons(p: { lessons_total: number | null; extra_lessons?: 
 
 const hoursOf = (b: Booking) => Math.round((Date.parse(b.ends_at) - Date.parse(b.starts_at)) / 3_600_000);
 
+/** Where a lesson is right now, by the clock. */
+export function lessonState(b: Booking): 'in_progress' | 'done' | Booking['status'] {
+  const now = Date.now();
+  if (b.status === 'confirmed' || b.status === 'completed') {
+    if (Date.parse(b.ends_at) <= now) return 'done';
+    if (Date.parse(b.starts_at) <= now) return 'in_progress';
+    return 'confirmed';
+  }
+  return b.status;
+}
+
 /**
  * Lesson counts for one student. One lesson = one hour, so a 2 hour lesson
- * counts as 2. "Done" means completed, or confirmed and already over.
+ * counts as 2. A lesson counts as done only once its time is over.
  */
 export function progressOf(bookings: Booking[], total: number | null) {
-  const now = Date.now();
   let done = 0;
+  let inProgress = 0;
   let booked = 0;
   for (const b of bookings) {
-    if (b.status === 'completed' || (b.status === 'confirmed' && Date.parse(b.ends_at) <= now)) done += hoursOf(b);
-    else if (b.status === 'confirmed' || b.status === 'pending') booked += hoursOf(b);
+    const state = lessonState(b);
+    if (state === 'done') done += hoursOf(b);
+    else if (state === 'in_progress') inProgress += hoursOf(b);
+    else if (state === 'confirmed' || state === 'pending') booked += hoursOf(b);
   }
-  const left = total == null ? null : Math.max(0, total - done - booked);
-  return { done, booked, left, total };
+  const left = total == null ? null : Math.max(0, total - done - inProgress - booked);
+  return { done, inProgress, booked, left, total };
 }
 
 /** Lessons that are over but have no remarks yet. */

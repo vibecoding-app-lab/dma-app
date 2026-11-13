@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Linking, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 
+import { LessonStatePill } from '@/components/LessonStatePill';
 import { ProgressCard } from '@/components/ProgressCard';
 import { RemarksView } from '@/components/Remarks';
 import { Updates } from '@/components/Updates';
@@ -10,7 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { type Booking, STATUS_LABEL, bookingAction, lessonLabel, proposal, studentCanCancel } from '@/lib/booking';
 import { unreadCounts } from '@/lib/chat';
 import { confirmAction, notify } from '@/lib/notify';
-import { packageLabel, totalLessons } from '@/lib/progress';
+import { lessonState, packageLabel, totalLessons } from '@/lib/progress';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
@@ -94,7 +95,7 @@ export default function StudentHome() {
       <Title>Hi {profile?.full_name?.split(' ')[0] ?? 'there'}</Title>
       {profile?.username ? <Subtitle>@{profile.username}</Subtitle> : null}
 
-      <Updates onChange={loadLessons} />
+      <Updates onChange={loadLessons} lessonPath="/student/lesson" />
 
       <Card>
         <SectionLabel>MY INSTRUCTOR</SectionLabel>
@@ -145,7 +146,9 @@ export default function StudentHome() {
         {upcoming.length === 0 ? <Subtitle>No upcoming lessons.</Subtitle> : null}
         {upcoming.map((b) => (
           <View key={b.id} style={{ gap: 6, paddingVertical: 8, borderTopWidth: 1, borderColor: colors.border }}>
-            <Text style={{ fontSize: 16, fontWeight: '600', textDecorationLine: proposal(b) ? 'line-through' : 'none', color: proposal(b) ? colors.muted : colors.ink }}>
+            <Text
+              onPress={() => router.push(`/student/lesson/${b.id}`)}
+              style={{ fontSize: 16, fontWeight: '600', textDecorationLine: proposal(b) ? 'line-through' : 'none', color: proposal(b) ? colors.muted : colors.ink }}>
               {lessonLabel(b)}
             </Text>
             {proposal(b) ? (
@@ -165,10 +168,11 @@ export default function StudentHome() {
                 </View>
               </View>
             ) : (
-              <Pill label={STATUS_LABEL[b.status]} tone={TONE[b.status]} />
+              <LessonStatePill lesson={b} />
             )}
             {b.pickup_location ? <Subtitle>Pickup: {b.pickup_location}</Subtitle> : null}
-            {proposal(b) ? null : studentCanCancel(b) ? (
+            <RemarksView lesson={b} />
+            {proposal(b) || lessonState(b) === 'in_progress' ? null : studentCanCancel(b) ? (
               <Button label="Cancel lesson" variant="secondary" onPress={() => cancel(b)} loading={busyId === b.id} />
             ) : (
               <Subtitle>Less than 24 hours away. To cancel, please call your instructor.</Subtitle>
@@ -181,11 +185,15 @@ export default function StudentHome() {
         <Card>
           <SectionLabel>PAST LESSONS AND REMARKS</SectionLabel>
           {other.map((b) => (
-            <View key={b.id} style={{ gap: 4, paddingVertical: 6 }}>
-              <Text style={{ fontSize: 15 }}>{lessonLabel(b)}</Text>
-              <Pill label={Date.parse(b.ends_at) < now && b.status === 'confirmed' ? 'Done' : STATUS_LABEL[b.status]} tone={TONE[b.status]} />
+            <Pressable
+              key={b.id}
+              onPress={() => router.push(`/student/lesson/${b.id}`)}
+              style={{ gap: 4, paddingVertical: 8, borderTopWidth: 1, borderColor: colors.border }}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '600' }}>{lessonLabel(b)}</Text>
+              <LessonStatePill lesson={b} />
               <RemarksView lesson={b} />
-            </View>
+            </Pressable>
           ))}
         </Card>
       ) : null}

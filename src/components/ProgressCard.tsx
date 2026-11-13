@@ -18,7 +18,8 @@ export function ProgressCard({
 }) {
   const p = progressOf(bookings, total);
   const doneShare = total ? Math.min(1, p.done / total) : 0;
-  const bookedShare = total ? Math.min(1 - doneShare, p.booked / total) : 0;
+  const nowShare = total ? Math.min(1 - doneShare, p.inProgress / total) : 0;
+  const bookedShare = total ? Math.min(1 - doneShare - nowShare, p.booked / total) : 0;
   return (
     <Card>
       <SectionLabel>{title}</SectionLabel>
@@ -29,11 +30,13 @@ export function ProgressCard({
       {total ? (
         <View style={{ height: 12, borderRadius: 6, backgroundColor: '#EEEEEE', flexDirection: 'row', overflow: 'hidden' }}>
           <View style={{ width: `${doneShare * 100}%`, backgroundColor: colors.success }} />
+          <View style={{ width: `${nowShare * 100}%`, backgroundColor: '#4285F4' }} />
           <View style={{ width: `${bookedShare * 100}%`, backgroundColor: '#F2C14E' }} />
         </View>
       ) : null}
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <Stat label="Done" value={p.done} color={colors.success} />
+        {p.inProgress ? <Stat label="In progress" value={p.inProgress} color="#1A5FD0" /> : null}
         <Stat label="Booked" value={p.booked} color="#B7860B" />
         {p.left != null ? <Stat label="Left" value={p.left} color={colors.ink} /> : null}
       </View>

@@ -5,9 +5,10 @@ import { Linking, Pressable, Text, View } from 'react-native';
 import { PackagePicker, packageProblem } from '@/components/PackagePicker';
 import { ProgressCard } from '@/components/ProgressCard';
 import { RemarksView } from '@/components/Remarks';
-import { Button, Card, ErrorText, Loading, Pill, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
+import { LessonStatePill } from '@/components/LessonStatePill';
+import { Button, Card, ErrorText, Loading, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { type Booking, STATUS_LABEL, lessonLabel } from '@/lib/booking';
+import { type Booking, lessonLabel } from '@/lib/booking';
 import { unreadCounts } from '@/lib/chat';
 import { confirmAction, notify } from '@/lib/notify';
 import { needsRemarks, packageLabel, totalLessons } from '@/lib/progress';
@@ -184,10 +185,7 @@ export default function StudentDetail() {
             style={{ gap: 4, paddingVertical: 8, borderTopWidth: 1, borderColor: colors.border }}
           >
             <Text style={{ fontSize: 15, fontWeight: '600' }}>{lessonLabel(b)}</Text>
-            <Pill
-              label={b.status === 'confirmed' && Date.parse(b.ends_at) < Date.now() ? 'Done' : STATUS_LABEL[b.status]}
-              tone={b.status === 'completed' || b.status === 'confirmed' ? 'good' : b.status === 'pending' ? 'waiting' : 'neutral'}
-            />
+            <LessonStatePill lesson={b} />
             <RemarksView lesson={b} />
           </Pressable>
         ))}
