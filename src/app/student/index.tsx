@@ -2,9 +2,10 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Text, View } from 'react-native';
 
+import { Updates } from '@/components/Updates';
 import { Button, Card, Pill, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { type Booking, STATUS_LABEL, bookingAction, lessonLabel, studentCanCancel } from '@/lib/booking';
+import { type Booking, STATUS_LABEL, bookingAction, lessonLabel, proposal, studentCanCancel } from '@/lib/booking';
 import { confirmAction, notify } from '@/lib/notify';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
@@ -62,6 +63,26 @@ export default function StudentHome() {
     });
   }
 
+  async function answer(b: Booking, action: 'accept_proposal' | 'decline_proposal') {
+    setBusyId(b.id + action);
+    try {
+      const updated = await bookingAction({ action, booking_id: b.id });
+      await loadLessons();
+      notify(
+        action === 'accept_proposal' ? 'Lesson confirmed' : 'New time declined',
+        action === 'accept_proposal'
+          ? lessonLabel(updated)
+          : b.status === 'pending'
+            ? 'Your instructor has been told. You can book another time.'
+            : `Your instructor has been told. Your lesson stays on ${lessonLabel(b)}.`,
+      );
+    } catch (e) {
+      notify('Something went wrong', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const now = Date.now();
   const upcoming = lessons.filter((b) => Date.parse(b.ends_at) > now && b.status !== 'cancelled' && b.status !== 'declined');
   const other = lessons.filter((b) => !upcoming.includes(b)).reverse();
@@ -70,6 +91,8 @@ export default function StudentHome() {
     <Screen>
       <Title>Hi {profile?.full_name?.split(' ')[0] ?? 'there'}</Title>
       {profile?.username ? <Subtitle>@{profile.username}</Subtitle> : null}
+
+      <Updates onChange={loadLessons} />
 
       <Card>
         <SectionLabel>MY INSTRUCTOR</SectionLabel>
@@ -99,10 +122,27 @@ export default function StudentHome() {
         {upcoming.length === 0 ? <Subtitle>No upcoming lessons.</Subtitle> : null}
         {upcoming.map((b) => (
           <View key={b.id} style={{ gap: 6, paddingVertical: 8, borderTopWidth: 1, borderColor: colors.border }}>
-            <Text style={{ fontSize: 16, fontWeight: '600' }}>{lessonLabel(b)}</Text>
-            <Pill label={STATUS_LABEL[b.status]} tone={TONE[b.status]} />
+            <Text style={{ fontSize: 16, fontWeight: '600', textDecorationLine: proposal(b) ? 'line-through' : 'none', color: proposal(b) ? colors.muted : colors.ink }}>
+              {lessonLabel(b)}
+            </Text>
+            {proposal(b) ? (
+              <View style={{ gap: 8, backgroundColor: '#FFF4D6', borderRadius: 10, padding: 12 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#8A5A00' }}>YOUR INSTRUCTOR SUGGESTED A NEW TIME</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700' }}>{lessonLabel(proposal(b)!)}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Button label="Accept" onPress={() => answer(b, 'accept_proposal')} loading={busyId === b.id + 'accept_proposal'} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button label="Decline" variant="secondary" onPress={() => answer(b, 'decline_proposal')} loading={busyId === b.id + 'decline_proposal'} />
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <Pill label={STATUS_LABEL[b.status]} tone={TONE[b.status]} />
+            )}
             {b.pickup_location ? <Subtitle>Pickup: {b.pickup_location}</Subtitle> : null}
-            {studentCanCancel(b) ? (
+            {proposal(b) ? null : studentCanCancel(b) ? (
               <Button label="Cancel lesson" variant="secondary" onPress={() => cancel(b)} loading={busyId === b.id} />
             ) : (
               <Subtitle>Less than 24 hours away. To cancel, please call your instructor.</Subtitle>

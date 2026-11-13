@@ -14,6 +14,8 @@ export type Booking = {
   pickup_location: string | null;
   notes: string | null;
   google_event_id?: string | null;
+  proposed_starts_at?: string | null;
+  proposed_ends_at?: string | null;
   cancel_reason: string | null;
   cancelled_by: string | null;
   student?: { full_name: string | null; phone: string | null; email: string } | null;
@@ -65,7 +67,9 @@ type Action =
   | { action: 'accept'; booking_id: string }
   | { action: 'decline'; booking_id: string; reason?: string }
   | { action: 'cancel'; booking_id: string; reason?: string }
-  | { action: 'reschedule'; booking_id: string; starts_at: string; duration_hours: 1 | 2 };
+  | { action: 'reschedule'; booking_id: string; starts_at: string; duration_hours: 1 | 2 }
+  | { action: 'accept_proposal'; booking_id: string }
+  | { action: 'decline_proposal'; booking_id: string };
 
 export async function bookingAction(input: Action): Promise<Booking> {
   const { booking } = await call<{ booking: Booking }>('booking-action', input);
@@ -102,4 +106,33 @@ export const STATUS_LABEL: Record<BookingStatus, string> = {
 /** A student may cancel a lesson that starts 24 hours or more from now. */
 export function studentCanCancel(b: Booking) {
   return (b.status === 'pending' || b.status === 'confirmed') && Date.parse(b.starts_at) - Date.now() >= 24 * 3_600_000;
+}
+
+/** The new time an instructor suggested, if the student hasn't answered yet. */
+export function proposal(b: Booking): { starts_at: string; ends_at: string } | null {
+  return b.proposed_starts_at && b.proposed_ends_at ? { starts_at: b.proposed_starts_at, ends_at: b.proposed_ends_at } : null;
+}
+
+// ---- Notifications ----------------------------------------------------------
+
+export type AppNotification = { id: string; booking_id: string | null; message: string; created_at: string };
+
+export async function fetchNotifications(): Promise<AppNotification[]> {
+  const { data } = await supabase
+    .from('notifications')
+    .select('id, booking_id, message, created_at')
+    .is('read_at', null)
+    .order('created_at', { ascending: false })
+    .limit(20);
+  return (data as AppNotification[]) ?? [];
+}
+
+export async function dismissNotifications(ids: string[]) {
+  if (!ids.length) return;
+  await supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', ids);
+}
+
+/** The server writes times as {t:ISO}; show them in the reader's own time. */
+export function notificationText(message: string) {
+  return message.replace(/\{t:([^}]+)\}/g, (_, iso: string) => `${dayLabel(iso)}, ${timeLabel(iso)}`);
 }

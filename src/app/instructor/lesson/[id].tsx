@@ -65,7 +65,7 @@ export default function EditLesson() {
     setWorking(true);
     try {
       const updated = await bookingAction({ action: 'reschedule', booking_id: lesson.id, starts_at: start, duration_hours: hours });
-      notify('Lesson changed', `${lessonLabel(updated)}\n\nPlease let the student know.`);
+      notify('Sent to the student', `New time: ${lessonLabel({ starts_at: updated.proposed_starts_at!, ends_at: updated.proposed_ends_at! })}\n\nThe student will be asked to accept it. Both times stay blocked until they answer.`);
       router.back();
     } catch (e) {
       notify('Could not change the lesson', e instanceof Error ? e.message : 'Please try again.');
@@ -97,6 +97,12 @@ export default function EditLesson() {
         <Pill label={STATUS_LABEL[lesson.status]} tone={lesson.status === 'confirmed' ? 'good' : 'neutral'} />
         {lesson.pickup_location ? <Subtitle>Pickup: {lesson.pickup_location}</Subtitle> : null}
         {lesson.notes ? <Subtitle>Note: {lesson.notes}</Subtitle> : null}
+        {lesson.proposed_starts_at && lesson.proposed_ends_at ? (
+          <Subtitle>
+            New time sent, waiting for the student:{' '}
+            {lessonLabel({ starts_at: lesson.proposed_starts_at, ends_at: lesson.proposed_ends_at })}
+          </Subtitle>
+        ) : null}
         {student?.phone ? (
           <Button label={`Call ${student.phone}`} variant="secondary" onPress={() => Linking.openURL(`tel:${student.phone}`)} />
         ) : null}
@@ -132,7 +138,8 @@ export default function EditLesson() {
           ) : (
             <SlotPicker hours={hours} onHours={setHours} selected={start} onSelect={setStart} excludeBookingId={lesson.id} />
           )}
-          <Button label="Save new time" onPress={saveMove} loading={working} disabled={!manual && !start} />
+          <Subtitle>The student will be asked to accept the new time. Until then, both times stay blocked.</Subtitle>
+          <Button label="Send new time to student" onPress={saveMove} loading={working} disabled={!manual && !start} />
         </Card>
       ) : null}
 

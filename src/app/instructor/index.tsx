@@ -3,12 +3,14 @@ import { useCallback, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
 import { InstructorCalendar } from '@/components/InstructorCalendar';
+import { Updates } from '@/components/Updates';
 import { Button, Card, ErrorText, Pill, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import {
   type Booking,
   bookingAction,
   lessonLabel,
+  proposal,
 } from '@/lib/booking';
 import { signInWithGoogleCalendar } from '@/lib/google';
 import { confirmAction, notify } from '@/lib/notify';
@@ -94,6 +96,8 @@ export default function InstructorHome() {
       <Title>Hi {profile?.full_name?.split(' ')[0] ?? 'there'}</Title>
       {profile?.username ? <Subtitle>@{profile.username}</Subtitle> : null}
 
+      <Updates onChange={load} />
+
       {!connected ? (
         <Card>
           <SectionLabel>GOOGLE CALENDAR</SectionLabel>
@@ -124,19 +128,25 @@ export default function InstructorHome() {
         {requests.map((b) => (
           <View key={b.id} style={{ gap: 6, paddingVertical: 8, borderTopWidth: 1, borderColor: colors.border }}>
             <Text style={{ fontSize: 16, fontWeight: '700' }}>{studentName(b)}</Text>
-            <Text style={{ fontSize: 15 }}>{lessonLabel(b)}</Text>
+            <Text style={{ fontSize: 15, textDecorationLine: proposal(b) ? 'line-through' : 'none' }}>{lessonLabel(b)}</Text>
             {b.pickup_location ? <Subtitle>Pickup: {b.pickup_location}</Subtitle> : null}
             {b.notes ? <Subtitle>Note: {b.notes}</Subtitle> : null}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Button label="Accept" onPress={() => answer(b, 'accept')} loading={busyId === b.id + 'accept'} />
+            {proposal(b) ? (
+              <WaitingForStudent b={b} />
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Button label="Accept" onPress={() => answer(b, 'accept')} loading={busyId === b.id + 'accept'} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button label="Decline" variant="secondary" onPress={() => decline(b)} loading={busyId === b.id + 'decline'} />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Button label="Decline" variant="secondary" onPress={() => decline(b)} loading={busyId === b.id + 'decline'} />
-              </View>
-            </View>
+            )}
             <Pressable onPress={() => router.push(`/instructor/lesson/${b.id}`)}>
-              <Text style={{ color: colors.brand, fontWeight: '600' }}>Suggest a different time</Text>
+              <Text style={{ color: colors.brand, fontWeight: '600' }}>
+                {proposal(b) ? 'Change the suggested time' : 'Suggest a different time'}
+              </Text>
             </Pressable>
           </View>
         ))}
@@ -159,6 +169,7 @@ export default function InstructorHome() {
           >
             <Text style={{ fontSize: 16, fontWeight: '600' }}>{studentName(b)}</Text>
             <Text style={{ fontSize: 15 }}>{lessonLabel(b)}</Text>
+            {proposal(b) ? <WaitingForStudent b={b} /> : null}
             <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
               <Pill label="Confirmed" tone="good" />
               {b.student?.phone ? (
@@ -182,5 +193,17 @@ export default function InstructorHome() {
       <ErrorText message={error} />
       <Button label="Sign out" variant="secondary" onPress={signOut} />
     </Screen>
+  );
+}
+
+function WaitingForStudent({ b }: { b: Booking }) {
+  const p = proposal(b);
+  if (!p) return null;
+  return (
+    <View style={{ backgroundColor: '#FFF4D6', borderRadius: 10, padding: 10, gap: 2 }}>
+      <Text style={{ fontSize: 13, fontWeight: '700', color: '#8A5A00' }}>NEW TIME SENT, WAITING FOR STUDENT</Text>
+      <Text style={{ fontSize: 15, fontWeight: '600' }}>{lessonLabel(p)}</Text>
+      <Text style={{ fontSize: 13, color: colors.muted }}>Both times are kept free until the student answers.</Text>
+    </View>
   );
 }

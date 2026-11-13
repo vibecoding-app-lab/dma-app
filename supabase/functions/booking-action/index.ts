@@ -5,13 +5,19 @@
 //   accept     instructor confirms a request (adds it to Google Calendar)
 //   decline    instructor turns a request down
 //   cancel     student (24 hours or more ahead) or instructor cancels
-//   reschedule instructor moves a lesson or changes its length
+//   reschedule instructor suggests a new time or length (student must confirm)
+//   accept_proposal / decline_proposal  student answers the suggested time
+//
+// Each step leaves an in-app notification for the other person.
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 import { googleEventRequest, handle, HttpError, instructorAccessToken, json, requireUser } from '../_shared/google.ts';
 import { openSlots } from '../_shared/slots.ts';
 
 const HOUR = 60 * 60 * 1000;
+
+/** {t:ISO} placeholders are shown in the reader's own time by the app. */
+const t = (iso: string) => `{t:${when(iso)}}`;
 
 type Booking = {
   id: string;
@@ -23,7 +29,25 @@ type Booking = {
   pickup_location: string | null;
   notes: string | null;
   google_event_id: string | null;
+  proposed_starts_at: string | null;
+  proposed_ends_at: string | null;
 };
+
+function when(startIso: string) {
+  // Times in notifications use the instructor's zone when we know it.
+  return new Date(startIso).toISOString();
+}
+
+/** Leaves an in-app notification. Never fails the action itself. */
+async function tell(admin: SupabaseClient, userId: string, bookingId: string, message: string) {
+  const { error } = await admin.from('notifications').insert({ user_id: userId, booking_id: bookingId, message });
+  if (error) console.error('notification failed', error.message);
+}
+
+async function nameOf(admin: SupabaseClient, id: string) {
+  const { data } = await admin.from('profiles').select('full_name, username, email').eq('id', id).single();
+  return data?.full_name ?? (data?.username ? `@${data.username}` : (data?.email ?? 'Someone'));
+}
 
 function lengthHours(value: unknown): 1 | 2 {
   const n = Number(value);
@@ -133,6 +157,7 @@ Deno.serve(
         .select()
         .single();
       if (error) overlapError(error);
+      await tell(admin, instructorId, data.id, `New lesson request from ${await nameOf(admin, profile.id)} for ${t(data.starts_at)} (${hours}h).`);
       return json({ booking: data });
     }
 
@@ -146,14 +171,18 @@ Deno.serve(
     if (action === 'accept' || action === 'decline') {
       if (!ownsAsInstructor) throw new HttpError(403, 'Only the instructor can do this');
       if (booking.status !== 'pending') throw new HttpError(409, 'This request has already been answered');
+      if (action === 'accept' && booking.proposed_starts_at) {
+        throw new HttpError(409, 'You suggested a new time. Waiting for the student to answer.');
+      }
 
       if (action === 'decline') {
         const { data } = await admin
           .from('bookings')
-          .update({ status: 'declined', cancel_reason: text(body.reason, 300) })
+          .update({ status: 'declined', cancel_reason: text(body.reason, 300), proposed_starts_at: null, proposed_ends_at: null })
           .eq('id', booking.id)
           .select()
           .single();
+        await tell(admin, booking.student_id, booking.id, `Your request for ${t(booking.starts_at)} was declined.`);
         return json({ booking: data });
       }
 
@@ -164,6 +193,7 @@ Deno.serve(
         .eq('id', booking.id)
         .select()
         .single();
+      await tell(admin, booking.student_id, booking.id, `Your lesson on ${t(booking.starts_at)} is confirmed.`);
       return json({ booking: data });
     }
 
@@ -188,10 +218,14 @@ Deno.serve(
           cancelled_by: profile.id,
           cancel_reason: text(body.reason, 300),
           google_event_id: null,
+          proposed_starts_at: null,
+          proposed_ends_at: null,
         })
         .eq('id', booking.id)
         .select()
         .single();
+      const other = profile.id === booking.student_id ? booking.instructor_id : booking.student_id;
+      await tell(admin, other, booking.id, `${await nameOf(admin, profile.id)} cancelled the lesson on ${t(booking.starts_at)}.`);
       return json({ booking: data });
     }
 
@@ -204,24 +238,84 @@ Deno.serve(
       const start = Date.parse(String(body.starts_at));
       if (Number.isNaN(start)) throw new HttpError(400, 'Pick a time');
       if (start < Date.now()) throw new HttpError(400, 'Pick a time in the future');
+      const end = start + hours * HOUR;
+
+      // The new time can't clash with another lesson, request or suggestion.
+      const { data: others } = await admin
+        .from('bookings')
+        .select('starts_at, ends_at, proposed_starts_at, proposed_ends_at')
+        .eq('instructor_id', booking.instructor_id)
+        .in('status', ['pending', 'confirmed'])
+        .neq('id', booking.id);
+      const clash = (others ?? []).some(
+        (o) =>
+          (Date.parse(o.starts_at) < end && start < Date.parse(o.ends_at)) ||
+          (o.proposed_starts_at && Date.parse(o.proposed_starts_at) < end && start < Date.parse(o.proposed_ends_at!)),
+      );
+      if (clash) throw new HttpError(409, 'That time overlaps another lesson or request.');
+
+      const { data } = await admin
+        .from('bookings')
+        .update({ proposed_starts_at: new Date(start).toISOString(), proposed_ends_at: new Date(end).toISOString() })
+        .eq('id', booking.id)
+        .select()
+        .single();
+      await tell(
+        admin,
+        booking.student_id,
+        booking.id,
+        `${await nameOf(admin, profile.id)} suggested a new time: ${t(new Date(start).toISOString())} (${hours}h). Please accept or decline.`,
+      );
+      return json({ booking: data });
+    }
+
+    if (action === 'accept_proposal' || action === 'decline_proposal') {
+      if (booking.student_id !== profile.id) throw new HttpError(403, 'Only the student can answer this');
+      if (!booking.proposed_starts_at || !booking.proposed_ends_at) {
+        throw new HttpError(409, 'There is no new time to answer');
+      }
+      if (booking.status !== 'pending' && booking.status !== 'confirmed') {
+        throw new HttpError(409, 'This lesson is not active');
+      }
+      const studentName = await nameOf(admin, profile.id);
+
+      if (action === 'decline_proposal') {
+        // A request with no agreed time ends; a confirmed lesson keeps its time.
+        const update =
+          booking.status === 'pending'
+            ? { status: 'cancelled', cancelled_by: profile.id, cancel_reason: 'Student declined the new time', proposed_starts_at: null, proposed_ends_at: null }
+            : { proposed_starts_at: null, proposed_ends_at: null };
+        const { data } = await admin.from('bookings').update(update).eq('id', booking.id).select().single();
+        await tell(
+          admin,
+          booking.instructor_id,
+          booking.id,
+          booking.status === 'pending'
+            ? `${studentName} declined the new time ${t(booking.proposed_starts_at)}. The request is closed.`
+            : `${studentName} declined the new time ${t(booking.proposed_starts_at)}. The lesson stays on ${t(booking.starts_at)}.`,
+        );
+        return json({ booking: data });
+      }
 
       const { data, error } = await admin
         .from('bookings')
         .update({
-          starts_at: new Date(start).toISOString(),
-          ends_at: new Date(start + hours * HOUR).toISOString(),
+          starts_at: booking.proposed_starts_at,
+          ends_at: booking.proposed_ends_at,
+          proposed_starts_at: null,
+          proposed_ends_at: null,
+          status: 'confirmed',
         })
         .eq('id', booking.id)
         .select()
         .single();
       if (error) overlapError(error);
       const updated = data as Booking;
-      if (updated.status === 'confirmed') {
-        const eventId = await syncToCalendar(admin, updated);
-        if (eventId !== updated.google_event_id) {
-          await admin.from('bookings').update({ google_event_id: eventId }).eq('id', updated.id);
-        }
+      const eventId = await syncToCalendar(admin, updated);
+      if (eventId !== updated.google_event_id) {
+        await admin.from('bookings').update({ google_event_id: eventId }).eq('id', updated.id);
       }
+      await tell(admin, booking.instructor_id, booking.id, `${studentName} accepted the new time ${t(updated.starts_at)}. It's on your calendar.`);
       return json({ booking: updated });
     }
 

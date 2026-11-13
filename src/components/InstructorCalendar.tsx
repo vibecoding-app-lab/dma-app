@@ -42,8 +42,10 @@ export function InstructorCalendar({ instructorId, refreshKey = 0 }: { instructo
           .select('*, student:profiles!bookings_student_id_fkey(full_name, phone, email)')
           .eq('instructor_id', instructorId)
           .in('status', ['pending', 'confirmed'])
-          .lt('starts_at', to.toISOString())
-          .gt('ends_at', from.toISOString()),
+          .or(
+            `and(starts_at.lt.${to.toISOString()},ends_at.gt.${from.toISOString()}),` +
+              `and(proposed_starts_at.lt.${to.toISOString()},proposed_ends_at.gt.${from.toISOString()})`,
+          ),
       ]);
       const lessons = (bookings as Booking[]) ?? [];
       const lessonEventIds = new Set(lessons.map((b) => b.google_event_id).filter(Boolean));
@@ -52,13 +54,26 @@ export function InstructorCalendar({ instructorId, refreshKey = 0 }: { instructo
           (b): CalendarItem => ({
             id: b.id,
             title: b.student?.full_name ?? b.student?.email ?? 'Student',
-            subtitle: b.status === 'pending' ? 'Request, tap to answer' : (b.pickup_location ?? undefined),
+            subtitle: b.proposed_starts_at ? 'Moving, waiting for student' : b.status === 'pending' ? 'Request, tap to answer' : (b.pickup_location ?? undefined),
             start: new Date(b.starts_at),
             end: new Date(b.ends_at),
             kind: b.status === 'pending' ? 'request' : 'lesson',
             onPress: () => router.push(`/instructor/lesson/${b.id}`),
           }),
         ),
+        ...lessons
+          .filter((b) => b.proposed_starts_at && b.proposed_ends_at)
+          .map(
+            (b): CalendarItem => ({
+              id: `${b.id}-proposed`,
+              title: `${b.student?.full_name ?? 'Student'} (new time?)`,
+              subtitle: 'Waiting for student',
+              start: new Date(b.proposed_starts_at!),
+              end: new Date(b.proposed_ends_at!),
+              kind: 'request',
+              onPress: () => router.push(`/instructor/lesson/${b.id}`),
+            }),
+          ),
         ...events
           .filter((e) => !lessonEventIds.has(e.id))
           .map(

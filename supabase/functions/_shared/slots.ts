@@ -41,11 +41,10 @@ export async function openSlots(
       .lte('date', lastDate),
     admin
       .from('bookings')
-      .select('id, starts_at, ends_at')
+      .select('id, starts_at, ends_at, proposed_starts_at, proposed_ends_at')
       .eq('instructor_id', instructorId)
       .in('status', ['pending', 'confirmed'])
-      .lt('starts_at', new Date(windowEnd).toISOString())
-      .gt('ends_at', new Date(windowStart - DAY).toISOString()),
+      .or(`ends_at.gt.${new Date(windowStart - DAY).toISOString()},proposed_ends_at.gt.${new Date(windowStart - DAY).toISOString()}`),
   ]);
 
   const bufferMs = Math.max(0, ...(rules ?? []).map((r) => r.buffer_min ?? 0)) * 60_000;
@@ -56,6 +55,10 @@ export async function openSlots(
   for (const b of bookings ?? []) {
     if (b.id === excludeBookingId) continue;
     busy.push({ start: Date.parse(b.starts_at) - bufferMs, end: Date.parse(b.ends_at) + bufferMs });
+    // A new time the instructor suggested is held too until the student answers.
+    if (b.proposed_starts_at && b.proposed_ends_at) {
+      busy.push({ start: Date.parse(b.proposed_starts_at) - bufferMs, end: Date.parse(b.proposed_ends_at) + bufferMs });
+    }
   }
   if (excludeBookingId) {
     const { data: excluded } = await admin.from('bookings').select('google_event_id').eq('id', excludeBookingId).maybeSingle();
