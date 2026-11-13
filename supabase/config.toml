@@ -1,0 +1,28 @@
+# Used by the Supabase CLI (`npx supabase ...`). See README.md.
+project_id = "drive-master-academy"
+
+[auth]
+site_url = "dmaapp://"
+additional_redirect_urls = ["dmaapp://auth/callback", "exp://**"]
+
+[auth.email]
+enable_signup = true
+# Students sign in with a 6-digit code instead of a link.
+otp_length = 6
+
+[auth.external.google]
+enabled = true
+client_id = "env(GOOGLE_CLIENT_ID)"
+secret = "env(GOOGLE_CLIENT_SECRET)"
+skip_nonce_check = false
+
+# The functions check the signed-in user themselves (auth.getUser), so the
+# gateway's JWT check is off. This also works with Supabase's newer signing keys.
+[functions.save-google-token]
+verify_jwt = false
+
+[functions.calendar-busy]
+verify_jwt = false
+
+[functions.username-sign-in]
+verify_jwt = false
