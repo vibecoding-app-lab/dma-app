@@ -7,6 +7,7 @@
 //   cancel     student (24 hours or more ahead) or instructor cancels
 //   reschedule instructor suggests a new time or length (student must confirm)
 //   accept_proposal / decline_proposal  student answers the suggested time
+//   instructor_book  instructor books a confirmed lesson for a student (urgent)
 //   remarks    instructor writes remarks after a lesson (marks it completed)
 //
 // Each step leaves an in-app notification for the other person.
@@ -43,6 +44,22 @@ function when(startIso: string) {
 async function tell(admin: SupabaseClient, userId: string, bookingId: string, message: string) {
   const { error } = await admin.from('notifications').insert({ user_id: userId, booking_id: bookingId, message });
   if (error) console.error('notification failed', error.message);
+}
+
+/** Does this time overlap another active lesson, request or suggested time? */
+async function clashes(admin: SupabaseClient, instructorId: string, start: number, end: number, ignoreId?: string) {
+  let query = admin
+    .from('bookings')
+    .select('starts_at, ends_at, proposed_starts_at, proposed_ends_at')
+    .eq('instructor_id', instructorId)
+    .in('status', ['pending', 'confirmed']);
+  if (ignoreId) query = query.neq('id', ignoreId);
+  const { data } = await query;
+  return (data ?? []).some(
+    (o) =>
+      (Date.parse(o.starts_at) < end && start < Date.parse(o.ends_at)) ||
+      (o.proposed_starts_at && Date.parse(o.proposed_starts_at) < end && start < Date.parse(o.proposed_ends_at!)),
+  );
 }
 
 async function nameOf(admin: SupabaseClient, id: string) {
@@ -183,6 +200,56 @@ Deno.serve(
       return json({ booking: data });
     }
 
+    // ---- Instructor books a lesson for a student directly ----------------
+    // For urgent lessons: any time, no 2-hour notice, confirmed straight away.
+    if (action === 'instructor_book') {
+      if (!isInstructor) throw new HttpError(403, 'Only instructors can do this');
+      const studentId = String(body.student_id ?? '');
+      const { data: student } = await admin
+        .from('profiles')
+        .select('id, assigned_instructor_id, role')
+        .eq('id', studentId)
+        .maybeSingle();
+      if (!student || student.role !== 'student' || (student.assigned_instructor_id !== profile.id && profile.role !== 'admin')) {
+        throw new HttpError(403, 'This student is not assigned to you');
+      }
+      const hours = lengthHours(body.duration_hours);
+      const start = Date.parse(String(body.starts_at));
+      if (Number.isNaN(start)) throw new HttpError(400, 'Pick a time');
+      if (start < Date.now() - 15 * 60_000) throw new HttpError(400, 'That time has already passed');
+      const end = start + hours * HOUR;
+      const instructorId = student.assigned_instructor_id ?? profile.id;
+      if (await clashes(admin, instructorId, start, end)) {
+        throw new HttpError(409, 'That time overlaps another lesson or request.');
+      }
+
+      const { data, error } = await admin
+        .from('bookings')
+        .insert({
+          student_id: studentId,
+          instructor_id: instructorId,
+          starts_at: new Date(start).toISOString(),
+          ends_at: new Date(end).toISOString(),
+          status: 'confirmed',
+          pickup_location: text(body.pickup_location, 200),
+          notes: text(body.notes, 500),
+        })
+        .select()
+        .single();
+      if (error) overlapError(error);
+      const booking = data as Booking;
+      const eventId = await syncToCalendar(admin, booking);
+      if (eventId) await admin.from('bookings').update({ google_event_id: eventId }).eq('id', booking.id);
+      await tell(
+        admin,
+        studentId,
+        booking.id,
+        `${await nameOf(admin, profile.id)} booked a lesson for you: ${t(booking.starts_at)} (${hours}h).` +
+          (text(body.notes, 500) ? ` Note: "${text(body.notes, 500)}"` : ''),
+      );
+      return json({ booking: { ...booking, google_event_id: eventId } });
+    }
+
     // ---- Everything else acts on an existing lesson ---------------------
     const { data: found } = await admin.from('bookings').select('*').eq('id', String(body.booking_id ?? '')).maybeSingle();
     const booking = found as Booking | null;
@@ -263,17 +330,7 @@ Deno.serve(
       const end = start + hours * HOUR;
 
       // The new time can't clash with another lesson, request or suggestion.
-      const { data: others } = await admin
-        .from('bookings')
-        .select('starts_at, ends_at, proposed_starts_at, proposed_ends_at')
-        .eq('instructor_id', booking.instructor_id)
-        .in('status', ['pending', 'confirmed'])
-        .neq('id', booking.id);
-      const clash = (others ?? []).some(
-        (o) =>
-          (Date.parse(o.starts_at) < end && start < Date.parse(o.ends_at)) ||
-          (o.proposed_starts_at && Date.parse(o.proposed_starts_at) < end && start < Date.parse(o.proposed_ends_at!)),
-      );
+      const clash = await clashes(admin, booking.instructor_id, start, end, booking.id);
       if (clash) throw new HttpError(409, 'That time overlaps another lesson or request.');
 
       const { data } = await admin

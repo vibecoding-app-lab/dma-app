@@ -119,6 +119,8 @@ export default function StudentDetail() {
         ) : null}
       </View>
 
+      <Button label="Book a lesson for this student" onPress={() => router.push(`/instructor/book/${id}`)} />
+
       <ProgressCard
         bookings={active}
         total={totalLessons(student)}

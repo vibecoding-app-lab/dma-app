@@ -73,6 +73,14 @@ type Action =
   | { action: 'decline'; booking_id: string; reason?: string }
   | { action: 'cancel'; booking_id: string; reason?: string }
   | { action: 'reschedule'; booking_id: string; starts_at: string; duration_hours: 1 | 2; message?: string }
+  | {
+      action: 'instructor_book';
+      student_id: string;
+      starts_at: string;
+      duration_hours: 1 | 2;
+      pickup_location?: string;
+      notes?: string;
+    }
   | { action: 'remarks'; booking_id: string; remarks: string; items: RemarkItem[] }
   | { action: 'accept_proposal'; booking_id: string }
   | { action: 'decline_proposal'; booking_id: string };

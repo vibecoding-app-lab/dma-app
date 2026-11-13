@@ -248,6 +248,7 @@ export default function InstructorHome() {
 
       <Card>
         <SectionLabel>SETTINGS</SectionLabel>
+        <Subtitle>To book an urgent lesson for a student, open them in My students and tap Book a lesson.</Subtitle>
         <Button label="My profile and username" variant="secondary" onPress={() => router.push('/instructor/profile')} />
         <Button label="Working hours" variant="secondary" onPress={() => router.push('/instructor/hours')} />
         <Button
