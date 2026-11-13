@@ -109,3 +109,32 @@ export async function openSlots(
   slots.sort((a, b) => a.start.localeCompare(b.start));
   return { timezone: tz, slots };
 }
+
+/** Students can have at most this many lesson hours on one day. */
+export const MAX_STUDENT_HOURS_PER_DAY = 2;
+
+/**
+ * Hours a student already has on each day (in the instructor's time zone),
+ * counting requests, confirmed and completed lessons.
+ */
+export async function studentHoursByDay(
+  admin: SupabaseClient,
+  studentId: string,
+  timeZone: string,
+): Promise<Map<string, number>> {
+  const { data } = await admin
+    .from('bookings')
+    .select('starts_at, ends_at, proposed_starts_at, proposed_ends_at')
+    .eq('student_id', studentId)
+    .in('status', ['pending', 'confirmed', 'completed'])
+    .gte('ends_at', new Date(Date.now() - DAY).toISOString());
+  const byDay = new Map<string, number>();
+  for (const b of data ?? []) {
+    const startIso = b.proposed_starts_at ?? b.starts_at;
+    const endIso = b.proposed_ends_at ?? b.ends_at;
+    const day = localDate(Date.parse(startIso), timeZone).date;
+    const hours = Math.round((Date.parse(endIso) - Date.parse(startIso)) / 3_600_000);
+    byDay.set(day, (byDay.get(day) ?? 0) + hours);
+  }
+  return byDay;
+}

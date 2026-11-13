@@ -14,7 +14,8 @@
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 import { googleEventRequest, handle, HttpError, instructorAccessToken, json, requireUser } from '../_shared/google.ts';
-import { openSlots } from '../_shared/slots.ts';
+import { MAX_STUDENT_HOURS_PER_DAY, openSlots, studentHoursByDay } from '../_shared/slots.ts';
+import { localDate } from '../_shared/time.ts';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -172,6 +173,20 @@ Deno.serve(
               : `Your package has ${left} lesson hour${left === 1 ? '' : 's'} left, so please book a ${left} hour lesson.`,
           );
         }
+      }
+
+      // No more than 2 lesson hours on one day.
+      const { data: inst } = await admin.from('instructors').select('timezone').eq('profile_id', instructorId).single();
+      const tz = inst?.timezone || 'UTC';
+      const used = await studentHoursByDay(admin, profile.id, tz);
+      const already = used.get(localDate(start, tz).date) ?? 0;
+      if (already + hours > MAX_STUDENT_HOURS_PER_DAY) {
+        throw new HttpError(
+          409,
+          already >= MAX_STUDENT_HOURS_PER_DAY
+            ? 'You already have 2 lessons that day. Please pick another day.'
+            : 'You can have up to 2 lessons a day. Please book a 1 hour lesson or pick another day.',
+        );
       }
 
       // The time must still be open right now.

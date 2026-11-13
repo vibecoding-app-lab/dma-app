@@ -1,6 +1,7 @@
 // Open lesson slots. Students get their assigned instructor's; instructors get their own.
 import { handle, HttpError, json, requireUser } from '../_shared/google.ts';
-import { openSlots } from '../_shared/slots.ts';
+import { MAX_STUDENT_HOURS_PER_DAY, openSlots, studentHoursByDay } from '../_shared/slots.ts';
+import { localDate } from '../_shared/time.ts';
 
 Deno.serve(
   handle(async (req) => {
@@ -15,6 +16,15 @@ Deno.serve(
     const instructorId = profile.role === 'student' ? profile.assigned_instructor_id : profile.id;
     if (!instructorId) throw new HttpError(409, "You haven't been assigned an instructor yet");
 
-    return json(await openSlots(admin, instructorId, durationHours, days, excludeBookingId));
+    const result = await openSlots(admin, instructorId, durationHours, days, excludeBookingId);
+
+    // Students: hide days where this lesson would go over the daily limit.
+    if (profile.role === 'student') {
+      const used = await studentHoursByDay(admin, profile.id, result.timezone);
+      result.slots = result.slots.filter(
+        (s) => (used.get(localDate(Date.parse(s.start), result.timezone).date) ?? 0) + durationHours <= MAX_STUDENT_HOURS_PER_DAY,
+      );
+    }
+    return json(result);
   }),
 );
