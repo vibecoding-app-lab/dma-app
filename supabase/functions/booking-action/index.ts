@@ -7,6 +7,7 @@
 //   cancel     student (24 hours or more ahead) or instructor cancels
 //   reschedule instructor suggests a new time or length (student must confirm)
 //   accept_proposal / decline_proposal  student answers the suggested time
+//   remarks    instructor writes remarks after a lesson (marks it completed)
 //
 // Each step leaves an in-app notification for the other person.
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
@@ -135,6 +136,26 @@ Deno.serve(
       const start = Date.parse(String(body.starts_at));
       if (Number.isNaN(start)) throw new HttpError(400, 'Pick a time');
 
+      // Students with a package can't book more hours than it has left.
+      const { data: me } = await admin.from('profiles').select('lessons_total').eq('id', profile.id).single();
+      if (me?.lessons_total) {
+        const { data: used } = await admin
+          .from('bookings')
+          .select('starts_at, ends_at')
+          .eq('student_id', profile.id)
+          .in('status', ['pending', 'confirmed', 'completed']);
+        const usedHours = (used ?? []).reduce((n, b) => n + Math.round((Date.parse(b.ends_at) - Date.parse(b.starts_at)) / HOUR), 0);
+        const left = me.lessons_total - usedHours;
+        if (hours > left) {
+          throw new HttpError(
+            409,
+            left <= 0
+              ? 'You have used all the lessons in your package. Please speak to your instructor.'
+              : `Your package has ${left} lesson hour${left === 1 ? '' : 's'} left, so please book a ${left} hour lesson.`,
+          );
+        }
+      }
+
       // The time must still be open right now.
       const days = Math.ceil((start - Date.now()) / (24 * HOUR)) + 1;
       if (days > 31) throw new HttpError(400, 'Lessons can be booked up to 4 weeks ahead');
@@ -256,7 +277,11 @@ Deno.serve(
 
       const { data } = await admin
         .from('bookings')
-        .update({ proposed_starts_at: new Date(start).toISOString(), proposed_ends_at: new Date(end).toISOString() })
+        .update({
+          proposed_starts_at: new Date(start).toISOString(),
+          proposed_ends_at: new Date(end).toISOString(),
+          proposal_message: text(body.message, 500),
+        })
         .eq('id', booking.id)
         .select()
         .single();
@@ -264,7 +289,9 @@ Deno.serve(
         admin,
         booking.student_id,
         booking.id,
-        `${await nameOf(admin, profile.id)} suggested a new time: ${t(new Date(start).toISOString())} (${hours}h). Please accept or decline.`,
+        `${await nameOf(admin, profile.id)} suggested a new time: ${t(new Date(start).toISOString())} (${hours}h).` +
+          (text(body.message, 500) ? ` Message: "${text(body.message, 500)}"` : '') +
+          ' Please accept or decline.',
       );
       return json({ booking: data });
     }
@@ -283,8 +310,8 @@ Deno.serve(
         // A request with no agreed time ends; a confirmed lesson keeps its time.
         const update =
           booking.status === 'pending'
-            ? { status: 'cancelled', cancelled_by: profile.id, cancel_reason: 'Student declined the new time', proposed_starts_at: null, proposed_ends_at: null }
-            : { proposed_starts_at: null, proposed_ends_at: null };
+            ? { status: 'cancelled', cancelled_by: profile.id, cancel_reason: 'Student declined the new time', proposed_starts_at: null, proposed_ends_at: null, proposal_message: null }
+            : { proposed_starts_at: null, proposed_ends_at: null, proposal_message: null };
         const { data } = await admin.from('bookings').update(update).eq('id', booking.id).select().single();
         await tell(
           admin,
@@ -304,6 +331,7 @@ Deno.serve(
           ends_at: booking.proposed_ends_at,
           proposed_starts_at: null,
           proposed_ends_at: null,
+          proposal_message: null,
           status: 'confirmed',
         })
         .eq('id', booking.id)
@@ -317,6 +345,30 @@ Deno.serve(
       }
       await tell(admin, booking.instructor_id, booking.id, `${studentName} accepted the new time ${t(updated.starts_at)}. It's on your calendar.`);
       return json({ booking: updated });
+    }
+
+    if (action === 'remarks') {
+      if (!ownsAsInstructor) throw new HttpError(403, 'Only the instructor can add remarks');
+      if (booking.status !== 'confirmed' && booking.status !== 'completed') {
+        throw new HttpError(409, 'Remarks can only be added to a confirmed lesson');
+      }
+      if (Date.parse(booking.starts_at) > Date.now()) throw new HttpError(409, 'Remarks can be added once the lesson has started');
+      const remarks = text(body.remarks, 2000);
+      if (!remarks) throw new HttpError(400, 'Write your remarks first');
+      const first = booking.status !== 'completed';
+      const { data } = await admin
+        .from('bookings')
+        .update({ remarks, remarks_at: new Date().toISOString(), status: 'completed' })
+        .eq('id', booking.id)
+        .select()
+        .single();
+      await tell(
+        admin,
+        booking.student_id,
+        booking.id,
+        `${await nameOf(admin, profile.id)} ${first ? 'added' : 'updated'} remarks for your lesson on ${t(booking.starts_at)}.`,
+      );
+      return json({ booking: data });
     }
 
     throw new HttpError(400, 'Unknown action');

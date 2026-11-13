@@ -9,6 +9,8 @@ export type Profile = {
   username: string | null;
   push_token: string | null;
   assigned_instructor_id: string | null;
+  package: PackageId | null;
+  lessons_total: number | null;
   created_at: string;
 };
 
@@ -22,3 +24,5 @@ export type Instructor = {
 };
 
 export type BusyBlock = { start: string; end: string };
+
+export type PackageId = 'package_1' | 'package_2' | 'package_3' | 'private';

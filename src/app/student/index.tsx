@@ -2,21 +2,25 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Text, View } from 'react-native';
 
+import { ProgressCard } from '@/components/ProgressCard';
 import { Updates } from '@/components/Updates';
 import { Button, Card, Pill, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { type Booking, STATUS_LABEL, bookingAction, lessonLabel, proposal, studentCanCancel } from '@/lib/booking';
+import { unreadCounts } from '@/lib/chat';
 import { confirmAction, notify } from '@/lib/notify';
+import { packageLabel } from '@/lib/progress';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
-const TONE = { pending: 'waiting', confirmed: 'good', declined: 'bad', cancelled: 'neutral', completed: 'neutral' } as const;
+const TONE = { pending: 'waiting', confirmed: 'good', declined: 'bad', cancelled: 'neutral', completed: 'good' } as const;
 
 export default function StudentHome() {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, refreshProfile } = useAuth();
   const [instructor, setInstructor] = useState<Profile | null>(null);
   const [lessons, setLessons] = useState<Booking[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     if (!profile?.assigned_instructor_id) {
@@ -33,14 +37,15 @@ export default function StudentHome() {
 
   const loadLessons = useCallback(async () => {
     if (!profile) return;
-    const since = new Date(Date.now() - 14 * 24 * 3_600_000).toISOString();
     const { data } = await supabase
       .from('bookings')
       .select('*')
       .eq('student_id', profile.id)
-      .gte('starts_at', since)
       .order('starts_at');
     setLessons((data as Booking[]) ?? []);
+    const counts = await unreadCounts(profile.id);
+    setUnread(Object.values(counts).reduce((a, b) => a + b, 0));
+    refreshProfile();
   }, [profile]);
 
 
@@ -80,7 +85,8 @@ export default function StudentHome() {
 
   const now = Date.now();
   const upcoming = lessons.filter((b) => Date.parse(b.ends_at) > now && b.status !== 'cancelled' && b.status !== 'declined');
-  const other = lessons.filter((b) => !upcoming.includes(b)).reverse();
+  const other = lessons.filter((b) => !upcoming.includes(b)).reverse().slice(0, 30);
+  const counted = lessons.filter((b) => ['pending', 'confirmed', 'completed'].includes(b.status));
 
   return (
     <Screen>
@@ -110,7 +116,28 @@ export default function StudentHome() {
         )}
       </Card>
 
-      {instructor ? <Button label="Book a lesson" onPress={() => router.push('/student/book')} /> : null}
+      {instructor ? (
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Button label="Book a lesson" onPress={() => router.push('/student/book')} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              label={unread ? `Chat (${unread} new)` : 'Chat'}
+              variant="secondary"
+              onPress={() => router.push('/student/chat')}
+            />
+          </View>
+        </View>
+      ) : null}
+
+      {instructor ? (
+        <ProgressCard
+          bookings={counted}
+          total={profile?.lessons_total ?? null}
+          packageText={profile?.package ? packageLabel(profile.package, profile.lessons_total) : 'Your instructor will set your package.'}
+        />
+      ) : null}
 
       <Card>
         <SectionLabel>MY LESSONS</SectionLabel>
@@ -124,6 +151,9 @@ export default function StudentHome() {
               <View style={{ gap: 8, backgroundColor: '#FFF4D6', borderRadius: 10, padding: 12 }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: '#8A5A00' }}>YOUR INSTRUCTOR SUGGESTED A NEW TIME</Text>
                 <Text style={{ fontSize: 16, fontWeight: '700' }}>{lessonLabel(proposal(b)!)}</Text>
+                {b.proposal_message ? (
+                  <Text style={{ fontSize: 15, fontStyle: 'italic' }}>"{b.proposal_message}"</Text>
+                ) : null}
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <View style={{ flex: 1 }}>
                     <Button label="Accept" onPress={() => answer(b, 'accept_proposal')} loading={busyId === b.id + 'accept_proposal'} />
@@ -148,11 +178,17 @@ export default function StudentHome() {
 
       {other.length > 0 ? (
         <Card>
-          <SectionLabel>EARLIER AND CANCELLED</SectionLabel>
+          <SectionLabel>PAST LESSONS AND REMARKS</SectionLabel>
           {other.map((b) => (
             <View key={b.id} style={{ gap: 4, paddingVertical: 6 }}>
               <Text style={{ fontSize: 15 }}>{lessonLabel(b)}</Text>
               <Pill label={Date.parse(b.ends_at) < now && b.status === 'confirmed' ? 'Done' : STATUS_LABEL[b.status]} tone={TONE[b.status]} />
+              {b.remarks ? (
+                <View style={{ backgroundColor: '#F3F7FF', borderRadius: 10, padding: 10, gap: 2 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#174EA6' }}>INSTRUCTOR'S REMARKS</Text>
+                  <Text style={{ fontSize: 15 }}>{b.remarks}</Text>
+                </View>
+              ) : null}
             </View>
           ))}
         </Card>

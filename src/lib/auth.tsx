@@ -25,7 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (error) console.warn('Could not load profile', error.message);
+    if (error && error.code !== 'PGRST116') {
+      // A network hiccup: keep what we have rather than signing the person out.
+      console.warn('Could not load profile', error.message);
+      return;
+    }
     setProfile(data ?? null);
   }, []);
 

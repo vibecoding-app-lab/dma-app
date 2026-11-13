@@ -13,6 +13,7 @@ import {
   proposal,
 } from '@/lib/booking';
 import { signInWithGoogleCalendar } from '@/lib/google';
+import { unreadCounts } from '@/lib/chat';
 import { confirmAction, notify } from '@/lib/notify';
 import { supabase } from '@/lib/supabase';
 import type { Instructor } from '@/lib/types';
@@ -30,11 +31,14 @@ export default function InstructorHome() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [needRemarks, setNeedRemarks] = useState<Booking[]>([]);
+  const [unread, setUnread] = useState<Record<string, number>>({});
+  const [names, setNames] = useState<Record<string, string>>({});
   const lastSignature = useRef('');
 
   const load = useCallback(async () => {
     if (!profile) return;
-    const [{ data: inst }, { count }, { data: bookings }] = await Promise.all([
+    const [{ data: inst }, { count }, { data: bookings }, { data: past }, counts] = await Promise.all([
       supabase.from('instructors').select('*').eq('profile_id', profile.id).single(),
       supabase.from('availability_rules').select('id', { count: 'exact', head: true }).eq('instructor_id', profile.id),
       supabase
@@ -44,7 +48,25 @@ export default function InstructorHome() {
         .in('status', ['pending', 'confirmed'])
         .gte('ends_at', new Date().toISOString())
         .order('starts_at'),
+      // Lessons in the last 30 days that started but have no remarks yet.
+      supabase
+        .from('bookings')
+        .select('*, student:profiles!bookings_student_id_fkey(full_name, phone, email)')
+        .eq('instructor_id', profile.id)
+        .eq('status', 'confirmed')
+        .is('remarks', null)
+        .lte('starts_at', new Date().toISOString())
+        .gte('starts_at', new Date(Date.now() - 30 * 86_400_000).toISOString())
+        .order('starts_at', { ascending: false }),
+      unreadCounts(profile.id),
     ]);
+    setNeedRemarks((past as Booking[]) ?? []);
+    setUnread(counts);
+    const ids = Object.keys(counts);
+    if (ids.length) {
+      const { data: people } = await supabase.from('profiles').select('id, full_name, email').in('id', ids);
+      setNames(Object.fromEntries((people ?? []).map((p) => [p.id, p.full_name ?? p.email])));
+    }
     setInstructor(inst ?? null);
     setHasHours((count ?? 0) > 0);
     const list = (bookings as Booking[]) ?? [];
@@ -90,6 +112,7 @@ export default function InstructorHome() {
   }
 
   const connected = Boolean(instructor?.google_connected_at);
+  const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
   const requests = lessons.filter((b) => b.status === 'pending');
   const confirmed = lessons.filter((b) => b.status === 'confirmed');
 
@@ -160,6 +183,44 @@ export default function InstructorHome() {
         </Card>
       ) : null}
 
+      {totalUnread ? (
+        <Card>
+          <SectionLabel>NEW MESSAGES</SectionLabel>
+          {Object.entries(unread).map(([studentId, n]) => (
+            <Pressable
+              key={studentId}
+              onPress={() => router.push(`/instructor/chat/${studentId}`)}
+              style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '600' }}>
+                {names[studentId] ?? 'A student'}
+              </Text>
+              <Text style={{ color: colors.brand, fontWeight: '700' }}>
+                {n} new ›
+              </Text>
+            </Pressable>
+          ))}
+        </Card>
+      ) : null}
+
+      {needRemarks.length ? (
+        <Card>
+          <SectionLabel>ADD REMARKS ({needRemarks.length})</SectionLabel>
+          <Subtitle>These lessons are over. Tell the student how it went.</Subtitle>
+          {needRemarks.map((b) => (
+            <Pressable
+              key={b.id}
+              onPress={() => router.push(`/instructor/lesson/${b.id}`)}
+              style={{ paddingVertical: 6, borderTopWidth: 1, borderColor: colors.border }}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '600' }}>{studentName(b)}</Text>
+              <Text style={{ fontSize: 14 }}>{lessonLabel(b)}</Text>
+              <Text style={{ color: colors.brand, fontWeight: '600' }}>Add remarks ›</Text>
+            </Pressable>
+          ))}
+        </Card>
+      ) : null}
+
       <Card>
         <SectionLabel>UPCOMING LESSONS</SectionLabel>
         {confirmed.length === 0 ? <Subtitle>No confirmed lessons yet.</Subtitle> : null}
@@ -189,7 +250,11 @@ export default function InstructorHome() {
         <SectionLabel>SETTINGS</SectionLabel>
         <Button label="My profile and username" variant="secondary" onPress={() => router.push('/instructor/profile')} />
         <Button label="Working hours" variant="secondary" onPress={() => router.push('/instructor/hours')} />
-        <Button label="My students" variant="secondary" onPress={() => router.push('/instructor/students')} />
+        <Button
+          label={totalUnread ? `My students and chats (${totalUnread} new)` : 'My students and chats'}
+          variant="secondary"
+          onPress={() => router.push('/instructor/students')}
+        />
       </Card>
 
       <ErrorText message={error} />
