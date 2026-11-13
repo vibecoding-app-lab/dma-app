@@ -5,6 +5,24 @@ import { SectionLabel, colors } from '@/components/ui';
 import type { Booking } from '@/lib/booking';
 import { LEVELS, type RemarkItem, SKILL_GROUPS, type SkillLevel } from '@/lib/skills';
 
+export function hasRemarks(lesson: Booking) {
+  return !!(lesson.remarks_items?.length || lesson.remarks);
+}
+
+/** A small button that opens the lesson page where the remarks are shown in full. */
+export function RemarksLink({ lesson, onPress }: { lesson: Booking; onPress: () => void }) {
+  if (!hasRemarks(lesson)) return null;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F3F7FF', borderColor: '#C9DAFB', borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}
+    >
+      <Text style={{ fontSize: 14, fontWeight: '600', color: '#174EA6' }}>📝 Read the remarks ›</Text>
+    </Pressable>
+  );
+}
+
 /** How remarks look to the student (and in the instructor's history). */
 export function RemarksView({ lesson }: { lesson: Booking }) {
   const items = lesson.remarks_items ?? [];

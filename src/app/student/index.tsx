@@ -4,7 +4,7 @@ import { Linking, Pressable, Text, View } from 'react-native';
 
 import { LessonStatePill } from '@/components/LessonStatePill';
 import { ProgressCard } from '@/components/ProgressCard';
-import { RemarksView } from '@/components/Remarks';
+import { RemarksLink } from '@/components/Remarks';
 import { Updates } from '@/components/Updates';
 import { Button, Card, Pill, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -171,7 +171,7 @@ export default function StudentHome() {
               <LessonStatePill lesson={b} />
             )}
             {b.pickup_location ? <Subtitle>Pickup: {b.pickup_location}</Subtitle> : null}
-            <RemarksView lesson={b} />
+            <RemarksLink lesson={b} onPress={() => router.push(`/student/lesson/${b.id}`)} />
             {proposal(b) || lessonState(b) === 'in_progress' ? null : studentCanCancel(b) ? (
               <Button label="Cancel lesson" variant="secondary" onPress={() => cancel(b)} loading={busyId === b.id} />
             ) : (
@@ -192,7 +192,7 @@ export default function StudentHome() {
             >
               <Text style={{ fontSize: 15, fontWeight: '600' }}>{lessonLabel(b)}</Text>
               <LessonStatePill lesson={b} />
-              <RemarksView lesson={b} />
+              <RemarksLink lesson={b} onPress={() => router.push(`/student/lesson/${b.id}`)} />
             </Pressable>
           ))}
         </Card>
