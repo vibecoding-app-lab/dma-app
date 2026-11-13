@@ -17,6 +17,14 @@ export type CalendarItem = {
 
 export type CalendarMode = 1 | 3 | 7;
 
+/** Working hours by weekday (0 = Sunday), as "HH:MM" pairs. */
+export type WorkingHours = Record<number, { start: string; end: string }[]>;
+
+const toHours = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h + m / 60;
+};
+
 const HOUR = 52; // pixels per hour
 const GUTTER = 44; // width of the hour labels
 const STYLE = {
@@ -86,7 +94,9 @@ export function CalendarView({
   mode,
   items,
   onSelectDay,
+  workingHours,
 }: {
+  workingHours?: WorkingHours;
   anchor: Date; // first day shown
   mode: CalendarMode;
   items: CalendarItem[];
@@ -193,6 +203,14 @@ export function CalendarView({
                     style={{ position: 'absolute', top: i * HOUR, left: 0, right: 0, height: HOUR, borderTopWidth: i ? 1 : 0, borderColor: '#EFEFEF' }}
                   />
                 ))}
+                {workingHours
+                  ? offHours(workingHours[d.getDay()] ?? [], firstHour, lastHour).map(([a, b]) => (
+                      <View
+                        key={`off-${a}`}
+                        style={{ position: 'absolute', top: (a - firstHour) * HOUR, height: (b - a) * HOUR, left: 0, right: 0, backgroundColor: '#ECECEC' }}
+                      />
+                    ))
+                  : null}
                 {placed.map(({ item, lane, lanes }) => {
                   const end = sameDay(item.start, item.end) ? item.end : addDays(startOfDay(item.start), 1);
                   const height = Math.max(18, top(end) - top(item.start) - 2);
@@ -252,12 +270,31 @@ export function CalendarView({
   );
 }
 
+/** The parts of the day outside working hours, as [from, to] in hours. */
+function offHours(windows: { start: string; end: string }[], first: number, last: number): [number, number][] {
+  const sorted = windows.map((w) => [toHours(w.start), toHours(w.end)] as [number, number]).sort((a, b) => a[0] - b[0]);
+  const out: [number, number][] = [];
+  let at = first;
+  for (const [a, b] of sorted) {
+    if (a > at) out.push([at, Math.min(a, last)]);
+    at = Math.max(at, b);
+  }
+  if (at < last) out.push([at, last]);
+  return out.filter(([a, b]) => b > a);
+}
+
 export function CalendarLegend() {
   const entries: [keyof typeof STYLE, string][] = [
     ['lesson', 'Lesson'],
     ['request', 'Request'],
     ['google', 'Google Calendar'],
   ];
+  const off = (
+    <View key="off" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#ECECEC', borderWidth: 1, borderColor: '#D5D5D5' }} />
+      <Text style={{ fontSize: 13, color: colors.muted }}>Outside working hours</Text>
+    </View>
+  );
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
       {entries.map(([k, label]) => (
@@ -266,6 +303,7 @@ export function CalendarLegend() {
           <Text style={{ fontSize: 13, color: colors.muted }}>{label}</Text>
         </View>
       ))}
+      {off}
     </View>
   );
 }

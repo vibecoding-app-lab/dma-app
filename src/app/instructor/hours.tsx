@@ -29,6 +29,8 @@ function tidy(t: string) {
   return m ? `${m[1].padStart(2, '0')}:${m[2]}` : null;
 }
 
+const deviceZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
 export default function WorkingHours() {
   const { profile } = useAuth();
   const [days, setDays] = useState<Record<number, Day> | null>(null);
@@ -78,6 +80,8 @@ export default function WorkingHours() {
         const { error } = await supabase.from('availability_rules').insert(rows);
         if (error) throw error;
       }
+      // Hours are read in the instructor's own time zone; keep it current.
+      await supabase.from('instructors').update({ timezone: deviceZone }).eq('profile_id', profile.id);
       notify('Saved', 'Students can now book inside these hours, except when your Google Calendar is busy.');
       router.back();
     } catch (e) {
@@ -94,6 +98,7 @@ export default function WorkingHours() {
         Students can only book inside these hours. Anything busy on your Google Calendar is blocked automatically, so
         for a day off just add it to your calendar.
       </Subtitle>
+      <Subtitle>Time zone: {deviceZone.replace('_', ' ')}</Subtitle>
 
       <Card>
         {DAYS.map(({ weekday, label }) => {

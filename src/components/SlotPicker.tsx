@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { Choice, ErrorText, SectionLabel, Subtitle, colors } from '@/components/ui';
 import { type Slot, dayLabel, fetchSlots, timeLabel } from '@/lib/booking';
+import { useLiveRefresh } from '@/lib/useLiveRefresh';
 
 /**
  * Lesson length, then a day, then a start time, from the instructor's open
@@ -38,6 +39,21 @@ export function SlotPicker({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hours, excludeBookingId]);
+
+  // Quietly re-check when the person comes back to the page and every minute,
+  // so a change to the instructor's calendar shows up without reloading.
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  useLiveRefresh(async () => {
+    try {
+      const r = await fetchSlots(hours, excludeBookingId);
+      setSlots(r.slots);
+      setError(null);
+      if (selectedRef.current && !r.slots.some((x) => x.start === selectedRef.current)) onSelect(null);
+    } catch {
+      // keep what is on screen
+    }
+  }, 60_000);
 
   // Group slots by local day.
   const byDay = useMemo(() => {

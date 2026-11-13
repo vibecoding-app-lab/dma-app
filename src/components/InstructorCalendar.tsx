@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import {
   type CalendarItem,
   type CalendarMode,
+  type WorkingHours,
   CalendarLegend,
   CalendarView,
   addDays,
@@ -25,6 +26,7 @@ export function InstructorCalendar({ instructorId, refreshKey = 0 }: { instructo
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hours, setHours] = useState<WorkingHours>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -32,7 +34,7 @@ export function InstructorCalendar({ instructorId, refreshKey = 0 }: { instructo
     const from = anchor;
     const to = addDays(anchor, mode);
     try {
-      const [events, { data: bookings }] = await Promise.all([
+      const [events, { data: bookings }, { data: rules }] = await Promise.all([
         fetchCalendarEvents(mode, from).catch((e) => {
           setError(e instanceof Error ? e.message : 'Could not read your Google Calendar.');
           return [];
@@ -46,7 +48,13 @@ export function InstructorCalendar({ instructorId, refreshKey = 0 }: { instructo
             `and(starts_at.lt.${to.toISOString()},ends_at.gt.${from.toISOString()}),` +
               `and(proposed_starts_at.lt.${to.toISOString()},proposed_ends_at.gt.${from.toISOString()})`,
           ),
+        supabase.from('availability_rules').select('weekday, start_time, end_time').eq('instructor_id', instructorId),
       ]);
+      const wh: WorkingHours = {};
+      for (const r of rules ?? []) {
+        (wh[r.weekday] ??= []).push({ start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5) });
+      }
+      setHours(wh);
       const lessons = (bookings as Booking[]) ?? [];
       const lessonEventIds = new Set(lessons.map((b) => b.google_event_id).filter(Boolean));
       setItems([
@@ -130,6 +138,7 @@ export function InstructorCalendar({ instructorId, refreshKey = 0 }: { instructo
         anchor={anchor}
         mode={mode}
         items={items}
+        workingHours={hours}
         onSelectDay={(d) => {
           setMode(1);
           setAnchor(d);
