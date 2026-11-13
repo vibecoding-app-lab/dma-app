@@ -2,16 +2,13 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
+import { InstructorCalendar } from '@/components/InstructorCalendar';
 import { Button, Card, ErrorText, Pill, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import {
   type Booking,
-  type CalendarEvent,
   bookingAction,
-  dayLabel,
-  fetchCalendarEvents,
   lessonLabel,
-  timeLabel,
 } from '@/lib/booking';
 import { signInWithGoogleCalendar } from '@/lib/google';
 import { confirmAction, notify } from '@/lib/notify';
@@ -27,11 +24,10 @@ export default function InstructorHome() {
   const [instructor, setInstructor] = useState<Instructor | null>(null);
   const [hasHours, setHasHours] = useState(true);
   const [lessons, setLessons] = useState<Booking[]>([]);
-  const [events, setEvents] = useState<CalendarEvent[] | null>(null);
-  const [loadingEvents, setLoadingEvents] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -49,6 +45,7 @@ export default function InstructorHome() {
     setInstructor(inst ?? null);
     setHasHours((count ?? 0) > 0);
     setLessons((bookings as Booking[]) ?? []);
+    setRefreshKey((k) => k + 1);
   }, [profile]);
 
   useFocusEffect(
@@ -56,18 +53,6 @@ export default function InstructorHome() {
       load();
     }, [load]),
   );
-
-  async function showCalendar() {
-    setLoadingEvents(true);
-    setError(null);
-    try {
-      setEvents(await fetchCalendarEvents(7));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not read your calendar.');
-    } finally {
-      setLoadingEvents(false);
-    }
-  }
 
   async function reconnect() {
     setReconnecting(true);
@@ -103,13 +88,6 @@ export default function InstructorHome() {
   const connected = Boolean(instructor?.google_connected_at);
   const requests = lessons.filter((b) => b.status === 'pending');
   const confirmed = lessons.filter((b) => b.status === 'confirmed');
-
-  // Calendar events grouped by day.
-  const eventDays = new Map<string, CalendarEvent[]>();
-  for (const e of events ?? []) {
-    const key = dayLabel(e.start);
-    eventDays.set(key, [...(eventDays.get(key) ?? []), e]);
-  }
 
   return (
     <Screen>
@@ -155,6 +133,12 @@ export default function InstructorHome() {
         ))}
       </Card>
 
+      {profile ? (
+        <Card>
+          <InstructorCalendar instructorId={profile.id} refreshKey={refreshKey} />
+        </Card>
+      ) : null}
+
       <Card>
         <SectionLabel>UPCOMING LESSONS</SectionLabel>
         {confirmed.length === 0 ? <Subtitle>No confirmed lessons yet.</Subtitle> : null}
@@ -178,29 +162,6 @@ export default function InstructorHome() {
           </Pressable>
         ))}
       </Card>
-
-      {connected ? (
-        <Card>
-          <SectionLabel>MY CALENDAR, NEXT 7 DAYS</SectionLabel>
-          {!events ? (
-            <Button label="Show my calendar" variant="secondary" onPress={showCalendar} loading={loadingEvents} />
-          ) : events.length === 0 ? (
-            <Subtitle>Nothing on your calendar in the next 7 days.</Subtitle>
-          ) : (
-            [...eventDays.entries()].map(([day, list]) => (
-              <View key={day} style={{ gap: 2, paddingVertical: 6 }}>
-                <Text style={{ fontSize: 15, fontWeight: '700' }}>{day}</Text>
-                {list.map((e) => (
-                  <Text key={e.id} style={{ fontSize: 15, color: e.busy ? colors.ink : colors.muted }}>
-                    {e.allDay ? 'All day' : `${timeLabel(e.start)} to ${timeLabel(e.end)}`}  {e.summary}
-                    {e.busy ? '' : ' (free)'}
-                  </Text>
-                ))}
-              </View>
-            ))
-          )}
-        </Card>
-      ) : null}
 
       <Card>
         <SectionLabel>SETTINGS</SectionLabel>

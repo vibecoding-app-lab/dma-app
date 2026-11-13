@@ -6,8 +6,14 @@ import { DAY, zonedToUtc } from '../_shared/time.ts';
 Deno.serve(
   handle(async (req) => {
     const { admin, user } = await requireInstructor(req);
-    const { days = 7 } = await req.json().catch(() => ({}));
+    const { days = 7, from } = await req.json().catch(() => ({}));
     const span = Math.min(Math.max(Number(days) || 7, 1), 31);
+    // Optional start of the range (ISO time); defaults to now. Limited to
+    // about two months either side of today.
+    const requested = from ? Date.parse(String(from)) : NaN;
+    const start = Number.isNaN(requested)
+      ? Date.now()
+      : Math.min(Math.max(requested, Date.now() - 62 * DAY), Date.now() + 62 * DAY);
 
     const { data: instructor } = await admin
       .from('instructors')
@@ -17,7 +23,6 @@ Deno.serve(
     const accessToken = await instructorAccessToken(admin, user.id);
     if (!instructor || !accessToken) throw new HttpError(409, 'Google Calendar is not connected');
 
-    const start = Date.now();
     const events = await listEvents(
       accessToken,
       instructor.google_calendar_id,

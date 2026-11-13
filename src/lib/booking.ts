@@ -13,6 +13,7 @@ export type Booking = {
   status: BookingStatus;
   pickup_location: string | null;
   notes: string | null;
+  google_event_id?: string | null;
   cancel_reason: string | null;
   cancelled_by: string | null;
   student?: { full_name: string | null; phone: string | null; email: string } | null;
@@ -51,8 +52,11 @@ export async function fetchSlots(durationHours: 1 | 2, excludeBookingId?: string
   });
 }
 
-export async function fetchCalendarEvents(days = 7) {
-  const { events } = await call<{ events: CalendarEvent[] }>('calendar-events', { days });
+export async function fetchCalendarEvents(days = 7, from?: Date) {
+  const { events } = await call<{ events: CalendarEvent[] }>('calendar-events', {
+    days,
+    from: from ? from.toISOString() : null,
+  });
   return events;
 }
 
