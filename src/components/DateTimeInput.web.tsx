@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
 
+import { TimeSelect } from '@/components/TimeSelect';
 import { colors } from '@/components/ui';
 
 /** Website version: the browser's own date and time pickers. */
@@ -19,7 +20,7 @@ export function DateTimeInput({
     borderRadius: 10,
     padding: '11px 12px',
     fontSize: 16,
-    fontFamily: 'inherit',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     background: '#fff',
     color: colors.ink,
     width: '100%',
@@ -33,7 +34,7 @@ export function DateTimeInput({
       </View>
       <View style={{ flex: 1, gap: 4 }}>
         <Text style={{ fontSize: 14, fontWeight: '600', color: colors.ink }}>Start time</Text>
-        <input type="time" step={300} value={time} onChange={(e) => onTime(e.target.value)} style={box} />
+        <TimeSelect value={time} onChange={onTime} label="Start time" />
       </View>
     </View>
   );

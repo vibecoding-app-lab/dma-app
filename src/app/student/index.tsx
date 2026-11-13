@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Text, View } from 'react-native';
 
@@ -43,11 +43,6 @@ export default function StudentHome() {
     setLessons((data as Booking[]) ?? []);
   }, [profile]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadLessons();
-    }, [loadLessons]),
-  );
 
   function cancel(b: Booking) {
     confirmAction('Cancel this lesson?', lessonLabel(b), 'Cancel lesson', async () => {

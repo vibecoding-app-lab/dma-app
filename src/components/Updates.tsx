@@ -1,36 +1,28 @@
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Card, SectionLabel, colors } from '@/components/ui';
+import { useLiveRefresh } from '@/lib/useLiveRefresh';
 import { type AppNotification, dismissNotifications, fetchNotifications, notificationText } from '@/lib/booking';
 
 /**
  * Unread updates for the signed-in person (new requests, new times, cancellations).
- * Checks again every minute while the screen is open. `onChange` lets the
- * screen reload its lessons when something new arrives.
+ * Checks every 20 seconds and whenever the person comes back to the app.
+ * `onChange` reloads the screen's lessons at the same moments.
  */
 export function Updates({ onChange }: { onChange?: () => void }) {
   const [items, setItems] = useState<AppNotification[]>([]);
 
   const load = useCallback(async () => {
     const next = await fetchNotifications();
-    setItems((prev) => {
-      if (next.some((n) => !prev.find((p) => p.id === n.id)) && prev.length) onChange?.();
-      return next;
-    });
-  }, [onChange]);
+    setItems(next);
+  }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
-
-  useEffect(() => {
-    const t = setInterval(load, 60_000);
-    return () => clearInterval(t);
-  }, [load]);
+  // The screen's own lessons refresh on the same rhythm (see onChange).
+  useLiveRefresh(() => {
+    load();
+    onChange?.();
+  });
 
   if (!items.length) return null;
 
@@ -56,7 +48,7 @@ export function Updates({ onChange }: { onChange?: () => void }) {
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, color: colors.ink }}>{notificationText(n.message)}</Text>
             <Text style={{ fontSize: 12, color: colors.muted }}>
-              {new Date(n.created_at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
+              {new Date(n.created_at).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}
             </Text>
           </View>
           <Pressable onPress={() => dismiss([n.id])} accessibilityLabel="Dismiss" hitSlop={10}>

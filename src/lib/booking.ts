@@ -83,7 +83,7 @@ export function dayLabel(iso: string) {
 }
 
 export function timeLabel(iso: string) {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 export function lessonLabel(b: { starts_at: string; ends_at: string }) {

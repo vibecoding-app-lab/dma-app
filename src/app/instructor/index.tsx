@@ -1,5 +1,5 @@
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
 import { InstructorCalendar } from '@/components/InstructorCalendar';
@@ -30,6 +30,7 @@ export default function InstructorHome() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const lastSignature = useRef('');
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -46,15 +47,16 @@ export default function InstructorHome() {
     ]);
     setInstructor(inst ?? null);
     setHasHours((count ?? 0) > 0);
-    setLessons((bookings as Booking[]) ?? []);
-    setRefreshKey((k) => k + 1);
+    const list = (bookings as Booking[]) ?? [];
+    setLessons(list);
+    // Redraw the calendar only when a lesson actually changed.
+    const signature = JSON.stringify(list.map((b) => [b.id, b.status, b.starts_at, b.proposed_starts_at]));
+    if (signature !== lastSignature.current) {
+      lastSignature.current = signature;
+      setRefreshKey((k) => k + 1);
+    }
   }, [profile]);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
 
   async function reconnect() {
     setReconnecting(true);

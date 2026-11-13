@@ -1,5 +1,6 @@
 import { Text, TextInput, View } from 'react-native';
 
+import { TimeSelect } from '@/components/TimeSelect';
 import { colors } from '@/components/ui';
 
 /**
@@ -25,8 +26,8 @@ export function DateTimeInput({
         <TextInput value={date} onChangeText={onDate} style={box} placeholder="2026-11-20" inputMode="numeric" />
       </View>
       <View style={{ flex: 1, gap: 4 }}>
-        <Text style={label}>Start (24h)</Text>
-        <TextInput value={time} onChangeText={onTime} style={box} placeholder="14:15" inputMode="numeric" />
+        <Text style={label}>Start time</Text>
+        <TimeSelect value={time} onChange={onTime} label="Start time" />
       </View>
     </View>
   );

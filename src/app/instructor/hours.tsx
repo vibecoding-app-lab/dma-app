@@ -1,6 +1,8 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Switch, Text, TextInput, View } from 'react-native';
+import { Switch, Text, View } from 'react-native';
+
+import { TimeSelect } from '@/components/TimeSelect';
 
 import { Button, Card, Choice, Loading, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -64,7 +66,7 @@ export default function WorkingHours() {
       if (!d.on) continue;
       const start = tidy(d.start);
       const end = tidy(d.end);
-      if (!start || !end) return notify('Check the times', `${label}: use 24-hour times like 09:00 and 17:30.`);
+      if (!start || !end) return notify('Check the times', `${label}: enter times like 9:00 AM and 5:30 PM.`);
       if (end <= start) return notify('Check the times', `${label}: the end time must be after the start time.`);
       rows.push({ instructor_id: profile.id, weekday, start_time: start, end_time: end, buffer_min: buffer });
     }
@@ -104,25 +106,14 @@ export default function WorkingHours() {
                   value={d.on}
                   onValueChange={(on) => update(weekday, { on })}
                   trackColor={{ true: colors.brand, false: colors.border }}
+                  thumbColor="#ffffff"
                 />
               </View>
               {d.on ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <TextInput
-                    value={d.start}
-                    onChangeText={(start) => update(weekday, { start })}
-                    style={timeBox}
-                    inputMode="numeric"
-                    accessibilityLabel={`${label} start time`}
-                  />
+                  <TimeSelect value={d.start} onChange={(start) => update(weekday, { start })} label={`${label} start time`} />
                   <Text style={{ color: colors.muted }}>to</Text>
-                  <TextInput
-                    value={d.end}
-                    onChangeText={(end) => update(weekday, { end })}
-                    style={timeBox}
-                    inputMode="numeric"
-                    accessibilityLabel={`${label} end time`}
-                  />
+                  <TimeSelect value={d.end} onChange={(end) => update(weekday, { end })} label={`${label} end time`} />
                 </View>
               ) : (
                 <Text style={{ color: colors.muted }}>Not working</Text>
@@ -150,15 +141,3 @@ export default function WorkingHours() {
     </Screen>
   );
 }
-
-const timeBox = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: 8,
-  paddingHorizontal: 12,
-  paddingVertical: 8,
-  fontSize: 16,
-  width: 80,
-  textAlign: 'center' as const,
-  backgroundColor: '#fff',
-};

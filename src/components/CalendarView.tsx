@@ -50,11 +50,11 @@ function sameDay(a: Date, b: Date) {
 
 function hourLabel(h: number) {
   const d = new Date(2000, 0, 1, h);
-  return d.toLocaleTimeString(undefined, { hour: 'numeric' });
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
 }
 
 function timeRange(a: Date, b: Date) {
-  const f = (d: Date) => d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const f = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   return `${f(a)} to ${f(b)}`;
 }
 
