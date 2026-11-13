@@ -5,7 +5,7 @@ import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { HttpError, instructorAccessToken, listEvents } from './google.ts';
 import { addDays, DAY, type Interval, localDate, overlaps, zonedToUtc } from './time.ts';
 
-const STEP_MIN = 30; // slots start on the hour and half hour
+const STEP_MIN = 15; // slots start every 15 minutes
 const MIN_NOTICE_MS = 2 * 60 * 60 * 1000; // no lessons starting within 2 hours
 
 export type Slot = { start: string; end: string };

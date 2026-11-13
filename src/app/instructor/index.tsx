@@ -92,12 +92,21 @@ export default function InstructorHome() {
   return (
     <Screen>
       <Title>Hi {profile?.full_name?.split(' ')[0] ?? 'there'}</Title>
+      {profile?.username ? <Subtitle>@{profile.username}</Subtitle> : null}
 
       {!connected ? (
         <Card>
           <SectionLabel>GOOGLE CALENDAR</SectionLabel>
           <Subtitle>Connect your calendar so students only see times you are free.</Subtitle>
           <Button label="Connect Google Calendar" onPress={reconnect} loading={reconnecting} />
+        </Card>
+      ) : null}
+
+      {profile && !profile.username ? (
+        <Card>
+          <SectionLabel>USERNAME</SectionLabel>
+          <Subtitle>Choose a username. Your students will see it next to your name.</Subtitle>
+          <Button label="Choose a username" onPress={() => router.push('/instructor/profile')} />
         </Card>
       ) : null}
 
@@ -165,6 +174,7 @@ export default function InstructorHome() {
 
       <Card>
         <SectionLabel>SETTINGS</SectionLabel>
+        <Button label="My profile and username" variant="secondary" onPress={() => router.push('/instructor/profile')} />
         <Button label="Working hours" variant="secondary" onPress={() => router.push('/instructor/hours')} />
         <Button label="My students" variant="secondary" onPress={() => router.push('/instructor/students')} />
       </Card>

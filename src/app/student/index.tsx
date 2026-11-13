@@ -69,12 +69,14 @@ export default function StudentHome() {
   return (
     <Screen>
       <Title>Hi {profile?.full_name?.split(' ')[0] ?? 'there'}</Title>
+      {profile?.username ? <Subtitle>@{profile.username}</Subtitle> : null}
 
       <Card>
         <SectionLabel>MY INSTRUCTOR</SectionLabel>
         {instructor ? (
           <>
             <Text style={{ fontSize: 20, fontWeight: '600' }}>{instructor.full_name ?? instructor.email}</Text>
+            {instructor.username ? <Text style={{ fontSize: 15, color: colors.muted }}>@{instructor.username}</Text> : null}
             {instructor.phone ? (
               <Button
                 label={`Call ${instructor.phone}`}

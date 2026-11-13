@@ -88,7 +88,7 @@ export default function Students() {
         students.map((student) => (
           <Card key={student.id}>
             <Text style={{ fontSize: 17, fontWeight: '600' }}>{student.full_name ?? 'Name not set'}</Text>
-            <Subtitle>{student.email}</Subtitle>
+            <Subtitle>{student.username ? `@${student.username} · ` : ""}{student.email}</Subtitle>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {student.phone ? (
                 <View style={{ flex: 1 }}>

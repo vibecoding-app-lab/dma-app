@@ -2,8 +2,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Text } from 'react-native';
 
+import { DateTimeInput } from '@/components/DateTimeInput';
 import { SlotPicker } from '@/components/SlotPicker';
-import { Button, Card, Loading, Pill, Screen, SectionLabel, Subtitle, Title } from '@/components/ui';
+import { Button, Card, Choice, Loading, Pill, Screen, SectionLabel, Subtitle, Title } from '@/components/ui';
 import { type Booking, STATUS_LABEL, bookingAction, lessonHours, lessonLabel } from '@/lib/booking';
 import { confirmAction, notify } from '@/lib/notify';
 import { supabase } from '@/lib/supabase';
@@ -15,6 +16,9 @@ export default function EditLesson() {
   const [start, setStart] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
   const [working, setWorking] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
 
   useEffect(() => {
     supabase
@@ -26,6 +30,10 @@ export default function EditLesson() {
         if (!data) return;
         setLesson(data as Booking);
         setHours(lessonHours(data as Booking));
+        const d = new Date((data as Booking).starts_at);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        setDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+        setTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
       });
   }, [id]);
 
@@ -33,8 +41,27 @@ export default function EditLesson() {
   const active = lesson.status === 'pending' || lesson.status === 'confirmed';
   const student = lesson.student;
 
+  /** The typed date and time as a moment, or null if they don't make sense. */
+  function typedStart(): string | null {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim()) || !/^\d{1,2}:\d{2}$/.test(time.trim())) return null;
+    const [hh, mm] = time.trim().split(':');
+    const d = new Date(`${date.trim()}T${hh.padStart(2, '0')}:${mm}:00`);
+    return Number.isNaN(+d) ? null : d.toISOString();
+  }
+
   async function saveMove() {
-    if (!start || !lesson) return;
+    if (!lesson) return;
+    if (manual) {
+      const typed = typedStart();
+      if (!typed) return notify('Check the time', 'Enter a date and a start time, for example 2026-11-20 and 14:15.');
+      if (Date.parse(typed) < Date.now()) return notify('Check the time', 'That time has already passed.');
+      return move(typed);
+    }
+    if (start) return move(start);
+  }
+
+  async function move(start: string) {
+    if (!lesson) return;
     setWorking(true);
     try {
       const updated = await bookingAction({ action: 'reschedule', booking_id: lesson.id, starts_at: start, duration_hours: hours });
@@ -80,8 +107,32 @@ export default function EditLesson() {
       {active && moving ? (
         <Card>
           <SectionLabel>NEW TIME</SectionLabel>
-          <SlotPicker hours={hours} onHours={setHours} selected={start} onSelect={setStart} excludeBookingId={lesson.id} />
-          <Button label="Save new time" onPress={saveMove} loading={working} disabled={!start} />
+          <Choice
+            options={[
+              { value: 'free', label: 'My free times' },
+              { value: 'manual', label: 'Type a time' },
+            ]}
+            value={manual ? 'manual' : 'free'}
+            onChange={(v) => setManual(v === 'manual')}
+          />
+          {manual ? (
+            <>
+              <SectionLabel>LESSON LENGTH</SectionLabel>
+              <Choice
+                options={[
+                  { value: 1, label: '1 hour' },
+                  { value: 2, label: '2 hours' },
+                ]}
+                value={hours}
+                onChange={(h) => setHours(h as 1 | 2)}
+              />
+              <DateTimeInput date={date} time={time} onDate={setDate} onTime={setTime} />
+              <Subtitle>Any time works here, even outside your working hours. Make sure your calendar is free.</Subtitle>
+            </>
+          ) : (
+            <SlotPicker hours={hours} onHours={setHours} selected={start} onSelect={setStart} excludeBookingId={lesson.id} />
+          )}
+          <Button label="Save new time" onPress={saveMove} loading={working} disabled={!manual && !start} />
         </Card>
       ) : null}
 
