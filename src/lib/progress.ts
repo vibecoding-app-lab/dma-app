@@ -26,6 +26,9 @@ export function totalLessons(p: { lessons_total: number | null; extra_lessons?: 
 const hoursOf = (b: Booking) => Math.round((Date.parse(b.ends_at) - Date.parse(b.starts_at)) / 3_600_000);
 
 /** Where a lesson is right now, by the clock. */
+/** Which progress box a tap came from. */
+export type ProgressKind = 'done' | 'in_progress' | 'booked' | 'left';
+
 export function lessonState(b: Booking): 'in_progress' | 'done' | Booking['status'] {
   const now = Date.now();
   if (b.status === 'confirmed' || b.status === 'completed') {
