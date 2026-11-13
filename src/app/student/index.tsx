@@ -3,13 +3,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, Text, View } from 'react-native';
 
 import { ProgressCard } from '@/components/ProgressCard';
+import { RemarksView } from '@/components/Remarks';
 import { Updates } from '@/components/Updates';
 import { Button, Card, Pill, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { type Booking, STATUS_LABEL, bookingAction, lessonLabel, proposal, studentCanCancel } from '@/lib/booking';
 import { unreadCounts } from '@/lib/chat';
 import { confirmAction, notify } from '@/lib/notify';
-import { packageLabel } from '@/lib/progress';
+import { packageLabel, totalLessons } from '@/lib/progress';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
@@ -134,8 +135,8 @@ export default function StudentHome() {
       {instructor ? (
         <ProgressCard
           bookings={counted}
-          total={profile?.lessons_total ?? null}
-          packageText={profile?.package ? packageLabel(profile.package, profile.lessons_total) : 'Your instructor will set your package.'}
+          total={totalLessons(profile)}
+          packageText={totalLessons(profile) ? packageLabel(profile?.package, profile?.lessons_total, profile?.extra_lessons ?? 0) : 'Your instructor will set your package.'}
         />
       ) : null}
 
@@ -183,12 +184,7 @@ export default function StudentHome() {
             <View key={b.id} style={{ gap: 4, paddingVertical: 6 }}>
               <Text style={{ fontSize: 15 }}>{lessonLabel(b)}</Text>
               <Pill label={Date.parse(b.ends_at) < now && b.status === 'confirmed' ? 'Done' : STATUS_LABEL[b.status]} tone={TONE[b.status]} />
-              {b.remarks ? (
-                <View style={{ backgroundColor: '#F3F7FF', borderRadius: 10, padding: 10, gap: 2 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#174EA6' }}>INSTRUCTOR'S REMARKS</Text>
-                  <Text style={{ fontSize: 15 }}>{b.remarks}</Text>
-                </View>
-              ) : null}
+              <RemarksView lesson={b} />
             </View>
           ))}
         </Card>

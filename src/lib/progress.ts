@@ -8,10 +8,19 @@ export const PACKAGES: { id: PackageId; label: string; lessons: number | null }[
   { id: 'private', label: 'Private', lessons: null },
 ];
 
-export function packageLabel(id: PackageId | null | undefined, total?: number | null) {
+export function packageLabel(id: PackageId | null | undefined, total?: number | null, extra = 0) {
   const p = PACKAGES.find((x) => x.id === id);
-  if (!p) return 'No package set';
-  return `${p.label} (${total ?? p.lessons} lessons)`;
+  const plus = extra > 0 ? ` + ${extra} extra` : '';
+  if (!p) return extra > 0 ? `No package, ${extra} extra lessons` : 'No package set';
+  return `${p.label} (${total ?? p.lessons} lessons${plus})`;
+}
+
+/** All lessons a student may take: package plus extras, or null when neither is set. */
+export function totalLessons(p: { lessons_total: number | null; extra_lessons?: number | null } | null | undefined) {
+  if (!p) return null;
+  const extra = p.extra_lessons ?? 0;
+  if (p.lessons_total == null && extra === 0) return null;
+  return (p.lessons_total ?? 0) + extra;
 }
 
 const hoursOf = (b: Booking) => Math.round((Date.parse(b.ends_at) - Date.parse(b.starts_at)) / 3_600_000);
@@ -34,5 +43,10 @@ export function progressOf(bookings: Booking[], total: number | null) {
 
 /** Lessons that are over but have no remarks yet. */
 export function needsRemarks(b: Booking) {
-  return (b.status === 'confirmed' || b.status === 'completed') && Date.parse(b.starts_at) <= Date.now() && !b.remarks;
+  return (
+    (b.status === 'confirmed' || b.status === 'completed') &&
+    Date.parse(b.starts_at) <= Date.now() &&
+    !b.remarks &&
+    !(b.remarks_items && b.remarks_items.length)
+  );
 }

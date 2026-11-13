@@ -4,12 +4,13 @@ import { Linking, Pressable, Text, View } from 'react-native';
 
 import { PackagePicker, packageProblem } from '@/components/PackagePicker';
 import { ProgressCard } from '@/components/ProgressCard';
+import { RemarksView } from '@/components/Remarks';
 import { Button, Card, ErrorText, Loading, Pill, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { type Booking, STATUS_LABEL, lessonLabel } from '@/lib/booking';
 import { unreadCounts } from '@/lib/chat';
 import { confirmAction, notify } from '@/lib/notify';
-import { needsRemarks, packageLabel } from '@/lib/progress';
+import { needsRemarks, packageLabel, totalLessons } from '@/lib/progress';
 import { supabase } from '@/lib/supabase';
 import type { PackageId, Profile } from '@/lib/types';
 import { useLiveRefresh } from '@/lib/useLiveRefresh';
@@ -25,6 +26,7 @@ export default function StudentDetail() {
   const [privateLessons, setPrivateLessons] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingExtra, setSavingExtra] = useState(false);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -61,6 +63,19 @@ export default function StudentDetail() {
     setError(null);
     setEditingPkg(false);
     load();
+  }
+
+  async function changeExtra(by: number) {
+    if (!student) return;
+    const next = Math.max(0, student.extra_lessons + by);
+    setSavingExtra(true);
+    setStudent({ ...student, extra_lessons: next });
+    const { error: e } = await supabase.rpc('set_extra_lessons', { p_student_id: id, p_extra: next });
+    setSavingExtra(false);
+    if (e) {
+      notify('Could not save', e.message);
+      load();
+    }
   }
 
   function remove() {
@@ -106,8 +121,8 @@ export default function StudentDetail() {
 
       <ProgressCard
         bookings={active}
-        total={student.lessons_total}
-        packageText={packageLabel(student.package, student.lessons_total)}
+        total={totalLessons(student)}
+        packageText={packageLabel(student.package, student.lessons_total, student.extra_lessons)}
         title="PROGRESS"
       />
 
@@ -130,6 +145,19 @@ export default function StudentDetail() {
             }}
           />
         )}
+      </Card>
+
+      <Card>
+        <SectionLabel>EXTRA LESSONS</SectionLabel>
+        <Subtitle>Lessons on top of the package, for example if the student buys more.</Subtitle>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <Stepper label="−" onPress={() => changeExtra(-1)} disabled={student.extra_lessons <= 0 || savingExtra} />
+          <Text style={{ fontSize: 26, fontWeight: '700', minWidth: 40, textAlign: 'center' }}>{student.extra_lessons}</Text>
+          <Stepper label="+" onPress={() => changeExtra(1)} disabled={savingExtra} />
+          <Text style={{ color: colors.muted, flex: 1 }}>
+            {student.extra_lessons === 1 ? 'extra lesson' : 'extra lessons'}
+          </Text>
+        </View>
       </Card>
 
       {waiting.length ? (
@@ -158,12 +186,34 @@ export default function StudentDetail() {
               label={b.status === 'confirmed' && Date.parse(b.ends_at) < Date.now() ? 'Done' : STATUS_LABEL[b.status]}
               tone={b.status === 'completed' || b.status === 'confirmed' ? 'good' : b.status === 'pending' ? 'waiting' : 'neutral'}
             />
-            {b.remarks ? <Text style={{ fontSize: 14, color: colors.ink }}>Remarks: {b.remarks}</Text> : null}
+            <RemarksView lesson={b} />
           </Pressable>
         ))}
       </Card>
 
       <Button label="Remove student" variant="secondary" onPress={remove} />
     </Screen>
+  );
+}
+
+function Stepper({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={label === '+' ? 'Add an extra lesson' : 'Remove an extra lesson'}
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        borderWidth: 1,
+        borderColor: colors.brand,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: disabled ? 0.4 : 1,
+      }}
+    >
+      <Text style={{ fontSize: 24, color: colors.brand, lineHeight: 26 }}>{label}</Text>
+    </Pressable>
   );
 }

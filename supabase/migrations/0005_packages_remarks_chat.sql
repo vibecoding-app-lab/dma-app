@@ -9,12 +9,18 @@
 
 alter table public.profiles add column if not exists package text;
 alter table public.profiles add column if not exists lessons_total integer;
+-- Extra lessons the instructor adds on top of the package.
+alter table public.profiles add column if not exists extra_lessons integer not null default 0;
 
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'profiles_package_check') then
     alter table public.profiles add constraint profiles_package_check
       check (package is null or package in ('package_1', 'package_2', 'package_3', 'private'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'profiles_extra_lessons_check') then
+    alter table public.profiles add constraint profiles_extra_lessons_check
+      check (extra_lessons between 0 and 500);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'profiles_lessons_total_check') then
     alter table public.profiles add constraint profiles_lessons_total_check
@@ -34,7 +40,8 @@ begin
      or new.email is distinct from old.email
      or new.assigned_instructor_id is distinct from old.assigned_instructor_id
      or new.package is distinct from old.package
-     or new.lessons_total is distinct from old.lessons_total then
+     or new.lessons_total is distinct from old.lessons_total
+     or new.extra_lessons is distinct from old.extra_lessons then
     raise exception 'Only the school can change role, email, instructor or package';
   end if;
   return new;
@@ -80,6 +87,32 @@ $$;
 
 grant execute on function public.set_student_package(uuid, text, integer) to authenticated;
 
+-- An instructor sets how many extra lessons one of their students has.
+create or replace function public.set_extra_lessons(p_student_id uuid, p_extra integer)
+returns public.profiles
+language plpgsql security definer set search_path = public as $$
+declare
+  result public.profiles;
+begin
+  if not exists (
+    select 1 from public.profiles
+     where id = p_student_id and role = 'student'
+       and (assigned_instructor_id = auth.uid() or public.is_admin())
+  ) then
+    raise exception 'This student is not assigned to you';
+  end if;
+  if p_extra is null or p_extra < 0 or p_extra > 500 then
+    raise exception 'Extra lessons must be between 0 and 500';
+  end if;
+  perform set_config('dma.allow_assignment', 'on', true);
+  update public.profiles set extra_lessons = p_extra where id = p_student_id
+  returning * into result;
+  return result;
+end;
+$$;
+
+grant execute on function public.set_extra_lessons(uuid, integer) to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- Lessons: a message with a suggested time, and the instructor's remarks.
 -- ---------------------------------------------------------------------------
@@ -87,6 +120,8 @@ grant execute on function public.set_student_package(uuid, text, integer) to aut
 alter table public.bookings add column if not exists proposal_message text;
 alter table public.bookings add column if not exists remarks text;
 alter table public.bookings add column if not exists remarks_at timestamptz;
+-- Skills worked on in the lesson: [{"skill": "Parallel parking", "level": "good", "note": "..."}]
+alter table public.bookings add column if not exists remarks_items jsonb;
 
 -- ---------------------------------------------------------------------------
 -- Chat between a student and their instructor.

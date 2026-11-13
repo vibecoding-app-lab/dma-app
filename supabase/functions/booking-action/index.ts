@@ -137,15 +137,16 @@ Deno.serve(
       if (Number.isNaN(start)) throw new HttpError(400, 'Pick a time');
 
       // Students with a package can't book more hours than it has left.
-      const { data: me } = await admin.from('profiles').select('lessons_total').eq('id', profile.id).single();
-      if (me?.lessons_total) {
+      const { data: me } = await admin.from('profiles').select('lessons_total, extra_lessons').eq('id', profile.id).single();
+      const allowed = me && (me.lessons_total != null || me.extra_lessons > 0) ? (me.lessons_total ?? 0) + (me.extra_lessons ?? 0) : null;
+      if (allowed != null) {
         const { data: used } = await admin
           .from('bookings')
           .select('starts_at, ends_at')
           .eq('student_id', profile.id)
           .in('status', ['pending', 'confirmed', 'completed']);
         const usedHours = (used ?? []).reduce((n, b) => n + Math.round((Date.parse(b.ends_at) - Date.parse(b.starts_at)) / HOUR), 0);
-        const left = me.lessons_total - usedHours;
+        const left = allowed - usedHours;
         if (hours > left) {
           throw new HttpError(
             409,
@@ -354,11 +355,20 @@ Deno.serve(
       }
       if (Date.parse(booking.starts_at) > Date.now()) throw new HttpError(409, 'Remarks can be added once the lesson has started');
       const remarks = text(body.remarks, 2000);
-      if (!remarks) throw new HttpError(400, 'Write your remarks first');
+      const levels = ['needs_work', 'improving', 'good'];
+      const items = (Array.isArray(body.items) ? body.items : [])
+        .slice(0, 40)
+        .map((i: { skill?: unknown; level?: unknown; note?: unknown }) => ({
+          skill: text(i?.skill, 80),
+          level: levels.includes(String(i?.level)) ? String(i?.level) : null,
+          note: text(i?.note, 300),
+        }))
+        .filter((i: { skill: string | null }) => i.skill);
+      if (!remarks && !items.length) throw new HttpError(400, 'Pick at least one skill or write a comment');
       const first = booking.status !== 'completed';
       const { data } = await admin
         .from('bookings')
-        .update({ remarks, remarks_at: new Date().toISOString(), status: 'completed' })
+        .update({ remarks: remarks ?? '', remarks_items: items, remarks_at: new Date().toISOString(), status: 'completed' })
         .eq('id', booking.id)
         .select()
         .single();

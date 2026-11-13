@@ -3,10 +3,12 @@ import { useEffect, useState } from 'react';
 import { Linking, Text } from 'react-native';
 
 import { DateTimeInput } from '@/components/DateTimeInput';
+import { RemarksEditor } from '@/components/Remarks';
 import { SlotPicker } from '@/components/SlotPicker';
 import { Button, Card, Choice, Field, Loading, Pill, Screen, SectionLabel, Subtitle, Title } from '@/components/ui';
 import { type Booking, STATUS_LABEL, bookingAction, lessonHours, lessonLabel } from '@/lib/booking';
 import { confirmAction, notify } from '@/lib/notify';
+import type { RemarkItem } from '@/lib/skills';
 import { supabase } from '@/lib/supabase';
 
 export default function EditLesson() {
@@ -19,6 +21,7 @@ export default function EditLesson() {
   const [manual, setManual] = useState(false);
   const [message, setMessage] = useState('');
   const [remarks, setRemarks] = useState('');
+  const [items, setItems] = useState<RemarkItem[]>([]);
   const [savingRemarks, setSavingRemarks] = useState(false);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -33,6 +36,7 @@ export default function EditLesson() {
         if (!data) return;
         setLesson(data as Booking);
         setRemarks((data as Booking).remarks ?? '');
+        setItems((data as Booking).remarks_items ?? []);
         setHours(lessonHours(data as Booking));
         const d = new Date((data as Booking).starts_at);
         const pad = (n: number) => String(n).padStart(2, '0');
@@ -84,7 +88,12 @@ export default function EditLesson() {
     if (!lesson) return;
     setSavingRemarks(true);
     try {
-      const updated = await bookingAction({ action: 'remarks', booking_id: lesson.id, remarks });
+      const updated = await bookingAction({
+        action: 'remarks',
+        booking_id: lesson.id,
+        remarks,
+        items: items.map((i) => ({ ...i, note: i.note?.trim() || null })),
+      });
       setLesson({ ...lesson, ...updated });
       notify('Remarks saved', 'The student can now see them.');
     } catch (e) {
@@ -176,19 +185,17 @@ export default function EditLesson() {
         <Card>
           <SectionLabel>LESSON REMARKS</SectionLabel>
           <Subtitle>
-            {lesson.remarks
+            {lesson.remarks_at
               ? 'The student can see these remarks. You can update them.'
               : 'How did the lesson go? The student sees this once you save it.'}
           </Subtitle>
-          <Field
-            label="Remarks"
-            value={remarks}
-            onChangeText={setRemarks}
-            multiline
-            maxLength={2000}
-            placeholder="e.g. Good mirror checks. Practise parallel parking and roundabouts next time."
+          <RemarksEditor items={items} onItems={setItems} comments={remarks} onComments={setRemarks} />
+          <Button
+            label={lesson.remarks_at ? 'Update remarks' : 'Save remarks'}
+            onPress={saveRemarks}
+            loading={savingRemarks}
+            disabled={!remarks.trim() && !items.length}
           />
-          <Button label={lesson.remarks ? 'Update remarks' : 'Save remarks'} onPress={saveRemarks} loading={savingRemarks} disabled={!remarks.trim()} />
         </Card>
       ) : null}
 

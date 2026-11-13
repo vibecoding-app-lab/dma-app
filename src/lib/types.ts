@@ -11,6 +11,7 @@ export type Profile = {
   assigned_instructor_id: string | null;
   package: PackageId | null;
   lessons_total: number | null;
+  extra_lessons: number;
   created_at: string;
 };
 

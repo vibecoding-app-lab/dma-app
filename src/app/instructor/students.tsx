@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth';
 import type { Booking } from '@/lib/booking';
 import { unreadCounts } from '@/lib/chat';
 import { notify } from '@/lib/notify';
-import { packageLabel, progressOf } from '@/lib/progress';
+import { packageLabel, progressOf, totalLessons } from '@/lib/progress';
 import { supabase } from '@/lib/supabase';
 import type { PackageId, Profile } from '@/lib/types';
 import { useLiveRefresh } from '@/lib/useLiveRefresh';
@@ -98,8 +98,9 @@ export default function Students() {
 
       {students.length === 0 ? <Subtitle>No students yet.</Subtitle> : null}
       {students.map((student) => {
-        const p = progressOf(lessons.filter((b) => b.student_id === student.id), student.lessons_total);
-        const share = student.lessons_total ? Math.min(1, p.done / student.lessons_total) : 0;
+        const total = totalLessons(student);
+        const p = progressOf(lessons.filter((b) => b.student_id === student.id), total);
+        const share = total ? Math.min(1, p.done / total) : 0;
         const messages = unread[student.id] ?? 0;
         return (
           <Pressable key={student.id} onPress={() => router.push(`/instructor/student/${student.id}`)}>
@@ -117,15 +118,15 @@ export default function Students() {
               </View>
               <Subtitle>
                 {student.username ? `@${student.username} · ` : ''}
-                {packageLabel(student.package, student.lessons_total)}
+                {packageLabel(student.package, student.lessons_total, student.extra_lessons)}
               </Subtitle>
-              {student.lessons_total ? (
+              {total ? (
                 <>
                   <View style={{ height: 8, borderRadius: 4, backgroundColor: '#EEEEEE', overflow: 'hidden' }}>
                     <View style={{ width: `${share * 100}%`, height: 8, backgroundColor: colors.success }} />
                   </View>
                   <Text style={{ fontSize: 14, color: colors.muted }}>
-                    {p.done} of {student.lessons_total} done · {p.booked} booked · {p.left} left
+                    {p.done} of {total} done · {p.booked} booked · {p.left} left
                   </Text>
                 </>
               ) : (

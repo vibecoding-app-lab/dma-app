@@ -1,5 +1,6 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
+import type { RemarkItem } from './skills';
 import { supabase } from './supabase';
 
 export type BookingStatus = 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'completed';
@@ -18,6 +19,7 @@ export type Booking = {
   proposed_ends_at?: string | null;
   proposal_message?: string | null;
   remarks?: string | null;
+  remarks_items?: RemarkItem[] | null;
   remarks_at?: string | null;
   cancel_reason: string | null;
   cancelled_by: string | null;
@@ -71,7 +73,7 @@ type Action =
   | { action: 'decline'; booking_id: string; reason?: string }
   | { action: 'cancel'; booking_id: string; reason?: string }
   | { action: 'reschedule'; booking_id: string; starts_at: string; duration_hours: 1 | 2; message?: string }
-  | { action: 'remarks'; booking_id: string; remarks: string }
+  | { action: 'remarks'; booking_id: string; remarks: string; items: RemarkItem[] }
   | { action: 'accept_proposal'; booking_id: string }
   | { action: 'decline_proposal'; booking_id: string };
 
