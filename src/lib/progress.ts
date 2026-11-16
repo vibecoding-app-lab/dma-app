@@ -1,5 +1,5 @@
 import type { Booking } from './booking';
-import type { PackageId } from './types';
+import type { PackageId, Profile } from './types';
 
 export const PACKAGES: { id: PackageId; label: string; lessons: number | null }[] = [
   { id: 'package_1', label: 'Package 1', lessons: 10 },
@@ -65,4 +65,15 @@ export function needsRemarks(b: Booking) {
     !b.remarks &&
     !(b.remarks_items && b.remarks_items.length)
   );
+}
+
+export type StudentStage = 'not_started' | 'in_progress' | 'completed';
+
+/** Where a student is overall: completed once every lesson in their package is done. */
+export function studentStage(student: Profile, bookings: Booking[]): StudentStage {
+  const total = totalLessons(student);
+  const p = progressOf(bookings, total);
+  if (total && p.done >= total) return 'completed';
+  if (p.done || p.inProgress || p.booked) return 'in_progress';
+  return 'not_started';
 }

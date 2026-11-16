@@ -25,7 +25,7 @@ export default function BookLesson() {
         notes,
       });
       notify('Request sent', `${lessonLabel(booking)}\n\nYour instructor will accept or decline it.`);
-      router.back();
+      (router.canGoBack() ? router.back() : router.replace('/student'));
     } catch (e) {
       notify('Could not book', e instanceof Error ? e.message : 'Please try again.');
     } finally {
@@ -48,7 +48,7 @@ export default function BookLesson() {
       </Card>
 
       <Button label="Send request" onPress={send} loading={sending} disabled={!start} />
-      <Button label="Back" variant="secondary" onPress={() => router.back()} />
+      <Button label="Back" variant="secondary" onPress={() => (router.canGoBack() ? router.back() : router.replace('/student'))} />
     </Screen>
   );
 }

@@ -9,7 +9,6 @@ import { Updates } from '@/components/Updates';
 import { Button, Card, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { type Booking, bookingAction, lessonLabel, proposal, studentCanCancel } from '@/lib/booking';
-import { unreadCounts } from '@/lib/chat';
 import { confirmAction, notify } from '@/lib/notify';
 import { lessonState, packageLabel, totalLessons } from '@/lib/progress';
 import { supabase } from '@/lib/supabase';
@@ -17,11 +16,10 @@ import type { Profile } from '@/lib/types';
 
 
 export default function StudentHome() {
-  const { profile, signOut, refreshProfile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const [instructor, setInstructor] = useState<Profile | null>(null);
   const [lessons, setLessons] = useState<Booking[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     if (!profile?.assigned_instructor_id) {
@@ -44,8 +42,6 @@ export default function StudentHome() {
       .eq('student_id', profile.id)
       .order('starts_at');
     setLessons((data as Booking[]) ?? []);
-    const counts = await unreadCounts(profile.id);
-    setUnread(Object.values(counts).reduce((a, b) => a + b, 0));
     refreshProfile();
   }, [profile]);
 
@@ -160,21 +156,6 @@ export default function StudentHome() {
       </Card>
 
       {instructor ? (
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Button label="Book a lesson" onPress={() => router.push('/student/book')} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              label={unread ? `Chat (${unread} new)` : 'Chat'}
-              variant="secondary"
-              onPress={() => router.push('/student/chat')}
-            />
-          </View>
-        </View>
-      ) : null}
-
-      {instructor ? (
         <ProgressCard
           bookings={counted}
           onSelect={(kind) => router.push(kind === 'left' ? '/student/book' : `/student/lessons?show=${kind}`)}
@@ -220,7 +201,6 @@ export default function StudentHome() {
         </Card>
       ) : null}
 
-      <Button label="Sign out" variant="secondary" onPress={signOut} />
     </Screen>
   );
 }

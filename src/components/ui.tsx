@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, createContext, useContext } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -22,10 +22,15 @@ export const colors = {
   success: '#1E7F4F',
 };
 
+/** True inside a layout that draws the NavBar, which already pads for the phone's status bar. */
+export const HasNavBar = createContext(false);
+
 export function Screen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
-  const body = <View style={styles.screenBody}>{children}</View>;
+  const hasNav = useContext(HasNavBar);
+  // Room at the bottom so the floating chat button never covers the last item.
+  const body = <View style={[styles.screenBody, hasNav && { paddingBottom: 96 }]}>{children}</View>;
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.screen} edges={hasNav ? ['bottom'] : ['top', 'bottom']}>
       {scroll ? <ScrollView keyboardShouldPersistTaps="handled">{body}</ScrollView> : body}
     </SafeAreaView>
   );

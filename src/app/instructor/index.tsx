@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
 import { InstructorCalendar } from '@/components/InstructorCalendar';
+import { StudentsDashboard } from '@/components/StudentsDashboard';
 import { Updates } from '@/components/Updates';
 import { Button, Card, ErrorText, Pill, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -23,7 +24,7 @@ function studentName(b: Booking) {
 }
 
 export default function InstructorHome() {
-  const { profile, signOut } = useAuth();
+  const { profile } = useAuth();
   const [instructor, setInstructor] = useState<Instructor | null>(null);
   const [hasHours, setHasHours] = useState(true);
   const [lessons, setLessons] = useState<Booking[]>([]);
@@ -122,6 +123,8 @@ export default function InstructorHome() {
       {profile?.username ? <Subtitle>@{profile.username}</Subtitle> : null}
 
       <Updates onChange={load} lessonPath="/instructor/lesson" />
+
+      <StudentsDashboard />
 
       {!connected ? (
         <Card>
@@ -246,20 +249,7 @@ export default function InstructorHome() {
         ))}
       </Card>
 
-      <Card>
-        <SectionLabel>SETTINGS</SectionLabel>
-        <Subtitle>To book an urgent lesson for a student, open them in My students and tap Book a lesson.</Subtitle>
-        <Button label="My profile and username" variant="secondary" onPress={() => router.push('/instructor/profile')} />
-        <Button label="Working hours" variant="secondary" onPress={() => router.push('/instructor/hours')} />
-        <Button
-          label={totalUnread ? `My students and chats (${totalUnread} new)` : 'My students and chats'}
-          variant="secondary"
-          onPress={() => router.push('/instructor/students')}
-        />
-      </Card>
-
       <ErrorText message={error} />
-      <Button label="Sign out" variant="secondary" onPress={signOut} />
     </Screen>
   );
 }

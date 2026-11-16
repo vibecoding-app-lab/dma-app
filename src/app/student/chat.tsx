@@ -29,7 +29,7 @@ export default function StudentChat() {
       myId={profile.id}
       title={name ?? 'My instructor'}
       subtitle="Your instructor"
-      onBack={() => router.back()}
+      onBack={() => (router.canGoBack() ? router.back() : router.replace('/student'))}
     />
   );
 }

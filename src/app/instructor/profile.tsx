@@ -38,7 +38,7 @@ export default function InstructorProfile() {
       }
       await refreshProfile();
       notify('Saved', `Your students will see you as ${fullName.trim()} (@${name}).`);
-      router.back();
+      (router.canGoBack() ? router.back() : router.replace('/instructor'));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save.');
     } finally {
@@ -65,7 +65,7 @@ export default function InstructorProfile() {
       </Card>
       <ErrorText message={error} />
       <Button label="Save" onPress={save} loading={saving} />
-      <Button label="Back" variant="secondary" onPress={() => router.back()} />
+      <Button label="Back" variant="secondary" onPress={() => (router.canGoBack() ? router.back() : router.replace('/instructor'))} />
     </Screen>
   );
 }

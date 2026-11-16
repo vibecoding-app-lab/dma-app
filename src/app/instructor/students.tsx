@@ -1,8 +1,9 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { PackagePicker, packageProblem } from '@/components/PackagePicker';
+import { STUDENT_FILTERS, type StudentFilter, matchesFilter } from '@/components/StudentsDashboard';
 import { Button, Card, ErrorText, Field, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import type { Booking } from '@/lib/booking';
@@ -15,6 +16,8 @@ import { useLiveRefresh } from '@/lib/useLiveRefresh';
 
 export default function Students() {
   const { profile } = useAuth();
+  const { filter: rawFilter } = useLocalSearchParams<{ filter?: string }>();
+  const filter = rawFilter && rawFilter in STUDENT_FILTERS ? (rawFilter as StudentFilter) : null;
   const [students, setStudents] = useState<Profile[]>([]);
   const [lessons, setLessons] = useState<Booking[]>([]);
   const [unread, setUnread] = useState<Record<string, number>>({});
@@ -74,30 +77,44 @@ export default function Students() {
     }
   }
 
+  const shown = filter
+    ? students.filter((s) => matchesFilter(filter, s, lessons.filter((b) => b.student_id === s.id)))
+    : students;
+
   return (
     <Screen>
-      <Pressable onPress={() => router.back()}>
-        <Text style={{ color: colors.brand, fontSize: 16 }}>‹ Back</Text>
-      </Pressable>
       <Title>My students</Title>
+      <Subtitle>Tap a student to chat, see progress, or book an urgent lesson for them.</Subtitle>
 
-      <Card>
-        <SectionLabel>ADD A STUDENT</SectionLabel>
-        <Field
-          label="Student's email"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="student@example.com"
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <PackagePicker value={pkg} onChange={setPkg} privateLessons={privateLessons} onPrivateLessons={setPrivateLessons} />
-        <Button label="Add student" onPress={addStudent} loading={adding} disabled={!email.includes('@')} />
-        <ErrorText message={error} />
-      </Card>
+      {filter ? null : (
+        <Card>
+          <SectionLabel>ADD A STUDENT</SectionLabel>
+          <Field
+            label="Student's email"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="student@example.com"
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+          <PackagePicker value={pkg} onChange={setPkg} privateLessons={privateLessons} onPrivateLessons={setPrivateLessons} />
+          <Button label="Add student" onPress={addStudent} loading={adding} disabled={!email.includes('@')} />
+          <ErrorText message={error} />
+        </Card>
+      )}
 
-      {students.length === 0 ? <Subtitle>No students yet.</Subtitle> : null}
-      {students.map((student) => {
+      {filter ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', flex: 1 }}>
+            {STUDENT_FILTERS[filter]}: {shown.length} student{shown.length === 1 ? '' : 's'}
+          </Text>
+          <Pressable onPress={() => router.setParams({ filter: '' })}>
+            <Text style={{ color: colors.brand, fontSize: 15, fontWeight: '600' }}>Show all</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {shown.length === 0 ? <Subtitle>{filter ? 'No students here yet.' : 'No students yet.'}</Subtitle> : null}
+      {shown.map((student) => {
         const total = totalLessons(student);
         const p = progressOf(lessons.filter((b) => b.student_id === student.id), total);
         const share = total ? Math.min(1, p.done / total) : 0;

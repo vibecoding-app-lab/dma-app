@@ -83,7 +83,7 @@ export default function WorkingHours() {
       // Hours are read in the instructor's own time zone; keep it current.
       await supabase.from('instructors').update({ timezone: deviceZone }).eq('profile_id', profile.id);
       notify('Saved', 'Students can now book inside these hours, except when your Google Calendar is busy.');
-      router.back();
+      (router.canGoBack() ? router.back() : router.replace('/instructor'));
     } catch (e) {
       notify('Could not save', e instanceof Error ? e.message : 'Please try again.');
     } finally {
@@ -142,7 +142,7 @@ export default function WorkingHours() {
       </Card>
 
       <Button label="Save hours" onPress={save} loading={saving} />
-      <Button label="Back" variant="secondary" onPress={() => router.back()} />
+      <Button label="Back" variant="secondary" onPress={() => (router.canGoBack() ? router.back() : router.replace('/instructor'))} />
     </Screen>
   );
 }
