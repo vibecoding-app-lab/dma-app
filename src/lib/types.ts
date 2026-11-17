@@ -20,7 +20,7 @@ export type Profile = {
   created_at: string;
 };
 
-export type LicenseClass = 'G1' | 'G2';
+export type LicenseClass = 'G1' | 'G2' | 'G';
 
 export type RoadTest = {
   student_id: string;

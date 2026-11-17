@@ -3,6 +3,7 @@ import type { LicenseClass, Profile } from './types';
 export const LICENSE_CLASSES: { value: LicenseClass; label: string }[] = [
   { value: 'G1', label: 'G1' },
   { value: 'G2', label: 'G2' },
+  { value: 'G', label: 'G' },
 ];
 
 /** True when a student has filled in everything the school needs. */

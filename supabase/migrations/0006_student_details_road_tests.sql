@@ -9,7 +9,7 @@ alter table public.profiles add column if not exists license_class text;
 
 alter table public.profiles drop constraint if exists profiles_license_class_check;
 alter table public.profiles add constraint profiles_license_class_check
-  check (license_class is null or license_class in ('G1', 'G2'));
+  check (license_class is null or license_class in ('G1', 'G2', 'G'));
 
 -- 2. One road test per student, booked by their instructor.
 create table if not exists public.road_tests (
