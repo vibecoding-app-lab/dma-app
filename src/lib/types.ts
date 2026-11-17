@@ -12,7 +12,23 @@ export type Profile = {
   package: PackageId | null;
   lessons_total: number | null;
   extra_lessons: number;
+  address: string | null;
+  license_number: string | null;
+  /** "YYYY-MM-DD" */
+  license_expiry: string | null;
+  license_class: LicenseClass | null;
   created_at: string;
+};
+
+export type LicenseClass = 'G1' | 'G2';
+
+export type RoadTest = {
+  student_id: string;
+  instructor_id: string;
+  starts_at: string;
+  location: string;
+  notes: string | null;
+  updated_at: string;
 };
 
 export type Instructor = {

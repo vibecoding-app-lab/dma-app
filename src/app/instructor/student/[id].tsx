@@ -5,9 +5,11 @@ import { Linking, Pressable, Text, View } from 'react-native';
 import { PackagePicker, packageProblem } from '@/components/PackagePicker';
 import { ProgressCard } from '@/components/ProgressCard';
 import { RemarksView } from '@/components/Remarks';
+import { RoadTestEditor } from '@/components/RoadTestEditor';
 import { LessonStatePill } from '@/components/LessonStatePill';
 import { Button, Card, ErrorText, Loading, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { formatDay } from '@/lib/studentDetails';
 import { type Booking, lessonLabel } from '@/lib/booking';
 import { unreadCounts } from '@/lib/chat';
 import { confirmAction, notify } from '@/lib/notify';
@@ -121,6 +123,22 @@ export default function StudentDetail() {
       </View>
 
       <Button label="Book a lesson for this student" onPress={() => router.push(`/instructor/book/${id}`)} />
+      <RoadTestEditor studentId={id} studentName={student.full_name ?? 'The student'} />
+
+      <Card>
+        <SectionLabel>STUDENT DETAILS</SectionLabel>
+        <Detail label="Full name" value={student.full_name} />
+        <Detail label="Email" value={student.email} />
+        <Detail label="Phone" value={student.phone} />
+        <Detail label="Address" value={student.address} />
+        <Detail label="Licence number" value={student.license_number} />
+        <Detail label="Licence class" value={student.license_class} />
+        <Detail
+          label="Licence expiry"
+          value={student.license_expiry ? formatDay(student.license_expiry) : null}
+          warn={!!student.license_expiry && Date.parse(student.license_expiry) < Date.now()}
+        />
+      </Card>
 
       <ProgressCard
         bookings={active}
@@ -193,6 +211,18 @@ export default function StudentDetail() {
 
       <Button label="Remove student" variant="secondary" onPress={remove} />
     </Screen>
+  );
+}
+
+function Detail({ label, value, warn }: { label: string; value: string | null | undefined; warn?: boolean }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 12, paddingVertical: 4 }}>
+      <Text style={{ width: 120, fontSize: 14, color: colors.muted }}>{label}</Text>
+      <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: warn ? colors.brand : value ? colors.ink : colors.muted }}>
+        {value || 'Not given yet'}
+        {warn ? '  (expired)' : ''}
+      </Text>
+    </View>
   );
 }
 

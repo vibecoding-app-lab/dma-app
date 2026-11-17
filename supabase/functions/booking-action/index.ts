@@ -153,6 +153,7 @@ Deno.serve(
       const hours = lengthHours(body.duration_hours);
       const start = Date.parse(String(body.starts_at));
       if (Number.isNaN(start)) throw new HttpError(400, 'Pick a time');
+      if (!String(body.pickup_location ?? '').trim()) throw new HttpError(400, 'Please enter a pickup address');
 
       // Students with a package can't book more hours than it has left.
       const { data: me } = await admin.from('profiles').select('lessons_total, extra_lessons').eq('id', profile.id).single();

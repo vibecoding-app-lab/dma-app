@@ -5,6 +5,7 @@ import { Linking, Pressable, Text, View } from 'react-native';
 import { LessonStatePill } from '@/components/LessonStatePill';
 import { ProgressCard } from '@/components/ProgressCard';
 import { RemarksLink } from '@/components/Remarks';
+import { RoadTestCard, roadTestStillAhead } from '@/components/RoadTestCard';
 import { Updates } from '@/components/Updates';
 import { Button, Card, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -12,7 +13,7 @@ import { type Booking, bookingAction, lessonLabel, proposal, studentCanCancel } 
 import { confirmAction, notify } from '@/lib/notify';
 import { lessonState, packageLabel, totalLessons } from '@/lib/progress';
 import { supabase } from '@/lib/supabase';
-import type { Profile } from '@/lib/types';
+import type { Profile, RoadTest } from '@/lib/types';
 
 
 export default function StudentHome() {
@@ -20,6 +21,7 @@ export default function StudentHome() {
   const [instructor, setInstructor] = useState<Profile | null>(null);
   const [lessons, setLessons] = useState<Booking[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [roadTest, setRoadTest] = useState<RoadTest | null>(null);
 
   useEffect(() => {
     if (!profile?.assigned_instructor_id) {
@@ -42,6 +44,8 @@ export default function StudentHome() {
       .eq('student_id', profile.id)
       .order('starts_at');
     setLessons((data as Booking[]) ?? []);
+    const { data: test } = await supabase.from('road_tests').select('*').eq('student_id', profile.id).maybeSingle();
+    setRoadTest((test as RoadTest | null) ?? null);
     refreshProfile();
   }, [profile]);
 
@@ -131,6 +135,8 @@ export default function StudentHome() {
     <Screen>
       <Title>Hi {profile?.full_name?.split(' ')[0] ?? 'there'}</Title>
       {profile?.username ? <Subtitle>@{profile.username}</Subtitle> : null}
+
+      {roadTest && roadTestStillAhead(roadTest) ? <RoadTestCard test={roadTest} /> : null}
 
       <Updates onChange={loadLessons} lessonPath="/student/lesson" />
 

@@ -4,24 +4,27 @@ import { useState } from 'react';
 import { SlotPicker } from '@/components/SlotPicker';
 import { Button, Card, Field, Screen, Subtitle, Title } from '@/components/ui';
 import { bookingAction, lessonLabel } from '@/lib/booking';
+import { useAuth } from '@/lib/auth';
 import { notify } from '@/lib/notify';
 
 export default function BookLesson() {
   const [hours, setHours] = useState<1 | 2>(1);
   const [start, setStart] = useState<string | null>(null);
-  const [pickup, setPickup] = useState('');
+  const { profile } = useAuth();
+  // Start with the address from the student's profile; they can change it for this lesson.
+  const [pickup, setPickup] = useState(profile?.address ?? '');
   const [notes, setNotes] = useState('');
   const [sending, setSending] = useState(false);
 
   async function send() {
-    if (!start) return;
+    if (!start || !pickup.trim()) return;
     setSending(true);
     try {
       const booking = await bookingAction({
         action: 'request',
         starts_at: start,
         duration_hours: hours,
-        pickup_location: pickup,
+        pickup_location: pickup.trim(),
         notes,
       });
       notify('Request sent', `${lessonLabel(booking)}\n\nYour instructor will accept or decline it.`);
@@ -43,11 +46,12 @@ export default function BookLesson() {
       </Card>
 
       <Card>
-        <Field label="Pickup address (optional)" value={pickup} onChangeText={setPickup} placeholder="e.g. 12 King St" />
+        <Field label="Pickup address (required)" value={pickup} onChangeText={setPickup} placeholder="e.g. 12 King St, Toronto" autoComplete="street-address" />
         <Field label="Note for your instructor (optional)" value={notes} onChangeText={setNotes} multiline />
       </Card>
 
-      <Button label="Send request" onPress={send} loading={sending} disabled={!start} />
+      {start && !pickup.trim() ? <Subtitle>Enter a pickup address to send the request.</Subtitle> : null}
+      <Button label="Send request" onPress={send} loading={sending} disabled={!start || !pickup.trim()} />
       <Button label="Back" variant="secondary" onPress={() => (router.canGoBack() ? router.back() : router.replace('/student'))} />
     </Screen>
   );

@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, usePathname } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -45,7 +46,7 @@ export function ChatButton() {
         elevation: 6,
       })}
     >
-      <Text style={{ fontSize: 26 }}>💬</Text>
+      <Ionicons name="chatbubble-ellipses" size={28} color="#FFFFFF" />
       {unread ? (
         <View style={{ position: 'absolute', top: -2, right: -2, minWidth: 22, height: 22, borderRadius: 11, backgroundColor: '#FFD43B', borderWidth: 2, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
           <Text style={{ fontSize: 11, fontWeight: '800', color: colors.ink }}>{unread > 9 ? '9+' : unread}</Text>

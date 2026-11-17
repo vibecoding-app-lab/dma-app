@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { type Href, router, usePathname } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -9,7 +10,8 @@ import { unreadCounts } from '@/lib/chat';
 import { confirmAction } from '@/lib/notify';
 import { useLiveRefresh } from '@/lib/useLiveRefresh';
 
-type Item = { label: string; icon: string; href: Href; match: (path: string) => boolean; badge?: number };
+type IconName = keyof typeof Ionicons.glyphMap;
+type Item = { label: string; icon: IconName; href: Href; match: (path: string) => boolean; badge?: number };
 
 /** The bar across the top of every screen, for students and instructors. */
 export function NavBar({ role }: { role: 'student' | 'instructor' }) {
@@ -27,25 +29,25 @@ export function NavBar({ role }: { role: 'student' | 'instructor' }) {
   const items: Item[] =
     role === 'student'
       ? [
-          { label: 'Home', icon: '🏠', href: '/student', match: (p) => p === '/student' },
+          { label: 'Home', icon: 'home', href: '/student', match: (p) => p === '/student' },
           ...(profile?.assigned_instructor_id
             ? ([
-                { label: 'Book', icon: '📅', href: '/student/book', match: (p) => p.startsWith('/student/book') },
-                { label: 'Lessons', icon: '📋', href: '/student/lessons?show=booked', match: (p) => p.startsWith('/student/lesson') },
+                { label: 'Book', icon: 'calendar', href: '/student/book', match: (p) => p.startsWith('/student/book') },
+                { label: 'Lessons', icon: 'list', href: '/student/lessons?show=booked', match: (p) => p.startsWith('/student/lesson') },
               ] as Item[])
             : []),
         ]
       : [
-          { label: 'Home', icon: '🏠', href: '/instructor', match: (p) => p === '/instructor' },
+          { label: 'Home', icon: 'home', href: '/instructor', match: (p) => p === '/instructor' },
           {
             label: 'Students',
-            icon: '👥',
+            icon: 'people',
             href: '/instructor/students',
             match: (p) => /^\/instructor\/(students|student\/|chat\/|book\/)/.test(p),
             badge: unread,
           },
-          { label: 'Hours', icon: '🕒', href: '/instructor/hours', match: (p) => p.startsWith('/instructor/hours') },
-          { label: 'Profile', icon: '👤', href: '/instructor/profile', match: (p) => p.startsWith('/instructor/profile') },
+          { label: 'Hours', icon: 'time', href: '/instructor/hours', match: (p) => p.startsWith('/instructor/hours') },
+          { label: 'Profile', icon: 'person-circle', href: '/instructor/profile', match: (p) => p.startsWith('/instructor/profile') },
         ];
 
   return (
@@ -66,7 +68,7 @@ export function NavBar({ role }: { role: 'student' | 'instructor' }) {
         })}
         <Tab
           label="Sign out"
-          icon="🚪"
+          icon="log-out"
           onPress={() => confirmAction('Sign out?', 'You can sign back in any time.', 'Sign out', async () => signOut())}
         />
       </View>
@@ -74,7 +76,7 @@ export function NavBar({ role }: { role: 'student' | 'instructor' }) {
   );
 }
 
-function Tab({ label, icon, active, badge, onPress }: { label: string; icon: string; active?: boolean; badge?: number; onPress: () => void }) {
+function Tab({ label, icon, active, badge, onPress }: { label: string; icon: IconName; active?: boolean; badge?: number; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
@@ -89,7 +91,7 @@ function Tab({ label, icon, active, badge, onPress }: { label: string; icon: str
       })}
     >
       <View>
-        <Text style={{ fontSize: 18 }}>{icon}</Text>
+        <Ionicons name={active ? icon : (`${icon}-outline` as IconName)} size={22} color={active ? colors.brand : '#FFFFFF'} />
         {badge ? (
           <View style={{ position: 'absolute', top: -4, right: -12, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#FFD43B', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
             <Text style={{ fontSize: 11, fontWeight: '800', color: colors.ink }}>{badge > 9 ? '9+' : badge}</Text>
