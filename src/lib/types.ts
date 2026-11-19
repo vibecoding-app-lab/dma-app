@@ -17,6 +17,14 @@ export type Profile = {
   /** "YYYY-MM-DD" */
   license_expiry: string | null;
   license_class: LicenseClass | null;
+  first_name: string | null;
+  last_name: string | null;
+  postal_code: string | null;
+  /** "YYYY-MM-DD" */
+  license_issue_date: string | null;
+  /** Instructors only: driving instructor licence number and its expiry year, printed on the in-car sheet. */
+  di_number: string | null;
+  di_licence_expiry_year: string | null;
   created_at: string;
 };
 

@@ -84,7 +84,8 @@ export default function Students() {
   return (
     <Screen>
       <Title>My students</Title>
-      <Subtitle>Tap a student to chat, see progress, or book an urgent lesson for them.</Subtitle>
+      <Subtitle>Tap a student to see their details, chat, open their in-car sheet, or book an urgent lesson.</Subtitle>
+      <Button label="Transfer a student" variant="secondary" onPress={() => router.push('/instructor/transfer')} />
 
       {filter ? null : (
         <Card>

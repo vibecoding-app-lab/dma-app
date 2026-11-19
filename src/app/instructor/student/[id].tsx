@@ -122,23 +122,37 @@ export default function StudentDetail() {
         ) : null}
       </View>
 
-      <Button label="Book a lesson for this student" onPress={() => router.push(`/instructor/book/${id}`)} />
-      <RoadTestEditor studentId={id} studentName={student.full_name ?? 'The student'} />
-
       <Card>
         <SectionLabel>STUDENT DETAILS</SectionLabel>
-        <Detail label="Full name" value={student.full_name} />
+        <Detail label="First name" value={student.first_name ?? student.full_name?.split(' ')[0]} />
+        <Detail label="Last name" value={student.last_name ?? student.full_name?.split(' ').slice(1).join(' ')} />
         <Detail label="Email" value={student.email} />
         <Detail label="Phone" value={student.phone} />
         <Detail label="Address" value={student.address} />
-        <Detail label="Licence number" value={student.license_number} />
+        <Detail label="Postal code" value={student.postal_code} />
+        <Detail label="Licence #" value={student.license_number} />
         <Detail label="Licence class" value={student.license_class} />
+        <Detail label="Issue date" value={student.license_issue_date ? formatDay(student.license_issue_date) : null} />
         <Detail
-          label="Licence expiry"
+          label="Expiry date"
           value={student.license_expiry ? formatDay(student.license_expiry) : null}
           warn={!!student.license_expiry && Date.parse(student.license_expiry) < Date.now()}
         />
+        <Detail label="Username" value={student.username ? `@${student.username}` : null} />
       </Card>
+
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Button label="In-car sheet" variant="secondary" onPress={() => router.push(`/instructor/in-car/${id}`)} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Button label="Transfer student" variant="secondary" onPress={() => router.push(`/instructor/transfer?student=${id}`)} />
+        </View>
+      </View>
+
+      <Button label="Book a lesson for this student" onPress={() => router.push(`/instructor/book/${id}`)} />
+      <RoadTestEditor studentId={id} studentName={student.full_name ?? 'The student'} />
+
 
       <ProgressCard
         bookings={active}

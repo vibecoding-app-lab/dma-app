@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Text } from 'react-native';
+import { Linking, Text, View } from 'react-native';
 
 import { DateTimeInput } from '@/components/DateTimeInput';
 import { RemarksEditor } from '@/components/Remarks';
@@ -103,6 +103,23 @@ export default function EditLesson() {
     }
   }
 
+  async function respond(action: 'accept' | 'decline') {
+    if (!lesson) return;
+    setWorking(true);
+    try {
+      const updated = await bookingAction({ action, booking_id: lesson.id });
+      setLesson({ ...lesson, ...updated });
+      notify(
+        action === 'accept' ? 'Lesson confirmed' : 'Request declined',
+        action === 'accept' ? `${lessonLabel(lesson)}. Added to your Google Calendar.` : 'The student has been told.',
+      );
+    } catch (e) {
+      notify('Something went wrong', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setWorking(false);
+    }
+  }
+
   function cancel() {
     if (!lesson) return;
     confirmAction('Cancel this lesson?', lessonLabel(lesson), 'Cancel lesson', async () => {
@@ -133,9 +150,24 @@ export default function EditLesson() {
             {lesson.proposal_message ? `\nYour message: "${lesson.proposal_message}"` : ''}
           </Subtitle>
         ) : null}
+        {lesson.status === 'pending' && !lesson.proposed_starts_at && !started ? (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <Button label="Accept" onPress={() => respond('accept')} loading={working} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                label="Decline"
+                variant="secondary"
+                onPress={() => confirmAction('Decline this request?', lessonLabel(lesson), 'Decline', () => respond('decline'))}
+              />
+            </View>
+          </View>
+        ) : null}
         {student?.phone ? (
           <Button label={`Call ${student.phone}`} variant="secondary" onPress={() => Linking.openURL(`tel:${student.phone}`)} />
         ) : null}
+        <Button label="View student profile" variant="secondary" onPress={() => router.push(`/instructor/student/${lesson.student_id}`)} />
       </Card>
 
       {active && !moving ? <Button label="Change time or length" onPress={() => setMoving(true)} /> : null}

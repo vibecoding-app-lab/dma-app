@@ -155,7 +155,11 @@ export default function InstructorHome() {
         {requests.length === 0 ? <Subtitle>No requests waiting.</Subtitle> : null}
         {requests.map((b) => (
           <View key={b.id} style={{ gap: 6, paddingVertical: 8, borderTopWidth: 1, borderColor: colors.border }}>
-            <Text style={{ fontSize: 16, fontWeight: '700' }}>{studentName(b)}</Text>
+            <Pressable onPress={() => router.push(`/instructor/student/${b.student_id}`)}>
+              <Text style={{ fontSize: 16, fontWeight: '700' }}>
+                {studentName(b)} <Text style={{ fontSize: 13, fontWeight: '600', color: colors.brand }}>View profile ›</Text>
+              </Text>
+            </Pressable>
             <Text style={{ fontSize: 15, textDecorationLine: proposal(b) ? 'line-through' : 'none' }}>{lessonLabel(b)}</Text>
             {b.pickup_location ? <Subtitle>Pickup: {b.pickup_location}</Subtitle> : null}
             {b.notes ? <Subtitle>Note: {b.notes}</Subtitle> : null}
@@ -177,6 +181,31 @@ export default function InstructorHome() {
               </Text>
             </Pressable>
           </View>
+        ))}
+      </Card>
+
+      <Card>
+        <SectionLabel>UPCOMING LESSONS</SectionLabel>
+        {confirmed.length === 0 ? <Subtitle>No confirmed lessons yet.</Subtitle> : null}
+        {confirmed.map((b) => (
+          <Pressable
+            key={b.id}
+            onPress={() => router.push(`/instructor/lesson/${b.id}`)}
+            style={{ gap: 4, paddingVertical: 8, borderTopWidth: 1, borderColor: colors.border }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: '600' }}>{studentName(b)}</Text>
+            <Text style={{ fontSize: 15 }}>{lessonLabel(b)}</Text>
+            {proposal(b) ? <WaitingForStudent b={b} /> : null}
+            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+              <Pill label="Confirmed" tone="good" />
+              {b.student?.phone ? (
+                <Text style={{ color: colors.brand }} onPress={() => Linking.openURL(`tel:${b.student?.phone}`)}>
+                  Call
+                </Text>
+              ) : null}
+              <Text style={{ color: colors.brand, fontWeight: '600' }}>Edit or cancel</Text>
+            </View>
+          </Pressable>
         ))}
       </Card>
 
@@ -224,30 +253,6 @@ export default function InstructorHome() {
         </Card>
       ) : null}
 
-      <Card>
-        <SectionLabel>UPCOMING LESSONS</SectionLabel>
-        {confirmed.length === 0 ? <Subtitle>No confirmed lessons yet.</Subtitle> : null}
-        {confirmed.map((b) => (
-          <Pressable
-            key={b.id}
-            onPress={() => router.push(`/instructor/lesson/${b.id}`)}
-            style={{ gap: 4, paddingVertical: 8, borderTopWidth: 1, borderColor: colors.border }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: '600' }}>{studentName(b)}</Text>
-            <Text style={{ fontSize: 15 }}>{lessonLabel(b)}</Text>
-            {proposal(b) ? <WaitingForStudent b={b} /> : null}
-            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-              <Pill label="Confirmed" tone="good" />
-              {b.student?.phone ? (
-                <Text style={{ color: colors.brand }} onPress={() => Linking.openURL(`tel:${b.student?.phone}`)}>
-                  Call
-                </Text>
-              ) : null}
-              <Text style={{ color: colors.brand, fontWeight: '600' }}>Edit or cancel</Text>
-            </View>
-          </Pressable>
-        ))}
-      </Card>
 
       <ErrorText message={error} />
     </Screen>

@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 
-import { Button, Card, ErrorText, Field, Screen, Subtitle, Title } from '@/components/ui';
+import { Button, Card, ErrorText, Field, Screen, SectionLabel, Subtitle, Title } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { notify } from '@/lib/notify';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +13,8 @@ export default function InstructorProfile() {
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
   const [phone, setPhone] = useState(profile?.phone ?? '');
   const [username, setUsername] = useState(profile?.username ?? '');
+  const [diNumber, setDiNumber] = useState(profile?.di_number ?? '');
+  const [diYear, setDiYear] = useState(profile?.di_licence_expiry_year ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +32,12 @@ export default function InstructorProfile() {
       }
       const { error: saveError } = await supabase
         .from('profiles')
-        .update({ full_name: fullName.trim(), phone: phone.trim() || null, username: name })
+        .update({
+          full_name: fullName.trim(),
+          phone: phone.trim() || null,
+          username: name,
+          ...('di_number' in profile ? { di_number: diNumber.trim() || null, di_licence_expiry_year: diYear.trim() || null } : {}),
+        })
         .eq('id', profile.id);
       if (saveError) {
         setError(saveError.code === '23505' ? 'That username is taken. Please choose another.' : saveError.message);
@@ -62,6 +69,19 @@ export default function InstructorProfile() {
         />
         <Subtitle>{USERNAME_RULES}</Subtitle>
         <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+      </Card>
+      <Card>
+        <SectionLabel>FOR THE IN-CAR SHEET</SectionLabel>
+        <Subtitle>These are filled in automatically on every student's in-car sheet.</Subtitle>
+        <Field label="Driving instructor licence #" value={diNumber} onChangeText={setDiNumber} autoCapitalize="characters" />
+        <Field
+          label="DI licence expiry year (03/31/20__)"
+          value={diYear}
+          onChangeText={(v) => setDiYear(v.replace(/\D/g, '').slice(-2))}
+          placeholder="e.g. 27"
+          inputMode="numeric"
+          maxLength={4}
+        />
       </Card>
       <ErrorText message={error} />
       <Button label="Save" onPress={save} loading={saving} />

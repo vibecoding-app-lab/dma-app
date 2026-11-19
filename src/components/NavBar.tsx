@@ -43,7 +43,7 @@ export function NavBar({ role }: { role: 'student' | 'instructor' }) {
             label: 'Students',
             icon: 'people',
             href: '/instructor/students',
-            match: (p) => /^\/instructor\/(students|student\/|chat\/|book\/)/.test(p),
+            match: (p) => /^\/instructor\/(students|student\/|chat\/|book\/|transfer|in-car)/.test(p),
             badge: unread,
           },
           { label: 'Hours', icon: 'time', href: '/instructor/hours', match: (p) => p.startsWith('/instructor/hours') },
