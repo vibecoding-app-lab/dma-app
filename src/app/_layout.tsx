@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { LoginSplash } from '@/components/LoginSplash';
 import { AuthProvider } from '@/lib/auth';
 
 export default function RootLayout() {
@@ -10,6 +11,7 @@ export default function RootLayout() {
       <AuthProvider>
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false }} />
+        <LoginSplash />
       </AuthProvider>
     </SafeAreaProvider>
   );

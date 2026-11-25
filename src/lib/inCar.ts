@@ -13,6 +13,11 @@ export const SHEET_FIELDS = FIELDS as SheetField[];
 export const PAGE_W = 612;
 export const PAGE_H = 792;
 export const PAGE_IMAGES = ['/in-car/page1.jpg', '/in-car/page2.jpg'];
+/** The school logo box at the top-left of each page: [left, top, width, height] in points. */
+export const LOGO_BOXES = [
+  [18, 16, 78, 36],
+  [19, 11, 78, 36],
+];
 
 export type Answers = Record<string, string>;
 
@@ -80,9 +85,10 @@ export async function downloadSheetPdf(values: Answers, fileName: string) {
   ]);
   const { PDFDocument, PDFName } = ((lib as { default?: unknown }).default ?? lib) as typeof import('pdf-lib');
   const fontkit = ((fk as { default?: unknown }).default ?? fk) as object;
-  const [pdfBytes, fontBytes] = await Promise.all([
+  const [pdfBytes, fontBytes, logoBytes] = await Promise.all([
     fetch('/in-car/in-car-sheet.pdf').then((r) => r.arrayBuffer()),
     fetch('/in-car/DejaVuSans.ttf').then((r) => r.arrayBuffer()),
+    fetch('/in-car/logo.png').then((r) => r.arrayBuffer()),
   ]);
   const doc = await PDFDocument.load(pdfBytes);
   doc.registerFontkit(fontkit as never);
@@ -100,7 +106,12 @@ export async function downloadSheetPdf(values: Answers, fileName: string) {
         const max = tf.getMaxLength();
         tf.setText(max ? v.slice(0, max) : v);
         // Even, readable text: sized to the box, smaller for the remarks box. The school name keeps its big heading size.
-        if (f.n !== 'Driving school name') tf.setFontSize(f.ml ? 9 : Math.max(6, Math.min(f.r[3] * 0.62, 10)));
+        if (!tf.acroField.getDefaultAppearance()) tf.acroField.setDefaultAppearance('/Helv 0 Tf 0 g');
+        if (f.n !== 'Driving school name') {
+          // Fit the text to its box: never taller than the box, never wider than it.
+          const fitWidth = (f.r[2] - 3) / (Math.max(1, v.length) * 0.56);
+          tf.setFontSize(f.ml ? 9 : Math.max(5, Math.min(f.r[3] * 0.62, 10, fitWidth)));
+        }
         tf.updateAppearances(font);
       } else if (f.t === 'ch') {
         const dd = form.getDropdown(f.n);
@@ -119,6 +130,13 @@ export async function downloadSheetPdf(values: Answers, fileName: string) {
     } catch (e) {
       console.warn('[in-car] could not fill', f.n, e);
     }
+  }
+
+  // The school logo goes in the logo box at the top of both pages.
+  try {
+    form.getButton('Driving school logo').setImage(await doc.embedPng(logoBytes));
+  } catch (e) {
+    console.warn('[in-car] could not add the logo', e);
   }
 
   const bytes = await doc.save();

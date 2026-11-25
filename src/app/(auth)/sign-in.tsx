@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { Logo } from '@/components/Logo';
 import { Button, Card, ErrorText, Field, Screen, Subtitle, Title, colors } from '@/components/ui';
 import { signInWithGoogleCalendar } from '@/lib/google';
 import { notify } from '@/lib/notify';
@@ -115,7 +116,7 @@ export default function SignIn() {
   return (
     <Screen>
       <View style={{ gap: 6, marginTop: 24 }}>
-        <Text style={{ color: colors.brand, fontWeight: '700', letterSpacing: 1 }}>DRIVE MASTER ACADEMY</Text>
+        <Logo width={260} style={{ alignSelf: 'center', marginBottom: 12 }} />
         <Title>Book your driving lessons</Title>
         <Subtitle>Students sign in with their username or email. Instructors sign in with Google.</Subtitle>
       </View>
