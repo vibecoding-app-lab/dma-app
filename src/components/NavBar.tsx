@@ -37,6 +37,7 @@ export function NavBar({ role }: { role: 'student' | 'instructor' }) {
                 { label: 'Lessons', icon: 'list', href: '/student/lessons?show=booked', match: (p) => p.startsWith('/student/lesson') },
               ] as Item[])
             : []),
+          { label: 'Profile', icon: 'person-circle', href: '/student/profile', match: (p) => p.startsWith('/student/profile') },
         ]
       : [
           { label: 'Home', icon: 'home', href: '/instructor', match: (p) => p === '/instructor' },

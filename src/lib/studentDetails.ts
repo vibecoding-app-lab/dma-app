@@ -15,7 +15,8 @@ export function studentDetailsComplete(p: Profile) {
     p.full_name && p.phone && p.username && p.address && p.license_number && p.license_expiry && p.license_class,
   );
   if (!has('postal_code')) return base;
-  return base && Boolean(p.first_name && p.last_name && p.postal_code && p.license_issue_date);
+  const more = base && Boolean(p.first_name && p.last_name && p.postal_code && p.license_issue_date);
+  return has('terms_accepted_at') ? more && Boolean(p.terms_accepted_at) : more;
 }
 
 /** "May 31, 2027" from "2027-05-31", without time-zone surprises. */

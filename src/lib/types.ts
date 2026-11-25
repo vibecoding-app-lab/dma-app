@@ -25,6 +25,8 @@ export type Profile = {
   /** Instructors only: driving instructor licence number and its expiry year, printed on the in-car sheet. */
   di_number: string | null;
   di_licence_expiry_year: string | null;
+  terms_accepted_at: string | null;
+  terms_version: string | null;
   created_at: string;
 };
 

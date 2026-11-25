@@ -3,10 +3,12 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Logo } from '@/components/Logo';
+import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { Button, Card, ErrorText, Field, Screen, Subtitle, Title, colors } from '@/components/ui';
 import { signInWithGoogleCalendar } from '@/lib/google';
 import { notify } from '@/lib/notify';
 import { supabase } from '@/lib/supabase';
+import { TERMS_VERSION } from '@/lib/terms';
 import {
   cleanUsername,
   isValidUsername,
@@ -23,6 +25,7 @@ export default function SignIn() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +71,7 @@ export default function SignIn() {
     if (!cleanEmail.includes('@')) return showError('Enter a valid email address.');
     if (!isValidUsername(username)) return showError(`Usernames are ${USERNAME_RULES}`);
     if (password.length < 8) return showError('Password must be at least 8 characters.');
+    if (!agreed) return showError('Please read and accept the Terms and Conditions to create an account.');
 
     setError(null);
     setBusy(true);
@@ -78,7 +82,9 @@ export default function SignIn() {
       const { data, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
         password,
-        options: { data: { username: cleanUsername(username) } },
+        options: {
+          data: { username: cleanUsername(username), terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION },
+        },
       });
       if (authError) throw authError;
       if (!data.session) {
@@ -170,7 +176,10 @@ export default function SignIn() {
         {mode === 'sign-in' ? (
           <Button label="Sign in" onPress={signIn} loading={busy} />
         ) : (
-          <Button label="Create account" onPress={signUp} loading={busy} />
+          <>
+            <TermsCheckbox checked={agreed} onChange={setAgreed} />
+            <Button label="Create account" onPress={signUp} loading={busy} disabled={!agreed} />
+          </>
         )}
 
         <Pressable onPress={() => switchMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')} style={{ paddingVertical: 6 }}>

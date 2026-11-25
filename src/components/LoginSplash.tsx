@@ -48,12 +48,15 @@ export function LoginSplash() {
         Animated.timing(text, { toValue: 1, duration: 550, easing: Easing.out(Easing.quad), useNativeDriver: native }),
         Animated.timing(line, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: native }),
       ]),
-      Animated.delay(650),
+      Animated.delay(1100),
       Animated.timing(fade, { toValue: 0, duration: 350, easing: Easing.in(Easing.quad), useNativeDriver: native }),
     ]).start(() => setVisible(false));
   }, [userId]);
 
   if (!visible) return null;
+
+  const first = profile?.first_name || profile?.full_name?.trim().split(/\s+/)[0];
+  const greeting = first ? `Welcome back, ${first}!` : 'Welcome to Drive Master Academy!';
 
   const logoW = Math.min(width - 48, 520);
   const k = logoW / FULL_W;
@@ -91,7 +94,21 @@ export function LoginSplash() {
           }}
         />
       </View>
-      <View style={{ width: logoW * 0.6, height: 3, marginTop: 22, borderRadius: 2, overflow: 'hidden', backgroundColor: '#F1D5D9' }}>
+      <Animated.Text
+        style={{
+          marginTop: 26,
+          fontSize: 22,
+          fontWeight: '700',
+          color: '#1A1A1A',
+          textAlign: 'center',
+          paddingHorizontal: 24,
+          opacity: text,
+          transform: [{ translateY: text.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+        }}
+      >
+        {greeting}
+      </Animated.Text>
+      <View style={{ width: logoW * 0.6, height: 3, marginTop: 16, borderRadius: 2, overflow: 'hidden', backgroundColor: '#F1D5D9' }}>
         <Animated.View style={{ height: 3, backgroundColor: BRAND, width: line.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }} />
       </View>
     </Animated.View>
