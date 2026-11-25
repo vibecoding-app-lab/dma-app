@@ -5,11 +5,9 @@ import { useAuth } from '@/lib/auth';
 
 const TEXT = require('../../assets/logo-text.png');
 const CAR = require('../../assets/logo-car.png');
-// Pieces of the 1200 x 258 logo, split where the car's speed lines begin.
+// Two full-size layers of the 1200 x 258 logo: the lettering, and the car with its speed lines.
 const FULL_W = 1200;
 const H = 258;
-const TEXT_W = 790;
-const CAR_W = FULL_W - TEXT_W;
 const BRAND = '#C8102E';
 
 /**
@@ -60,7 +58,7 @@ export function LoginSplash() {
 
   const logoW = Math.min(width - 48, 520);
   const k = logoW / FULL_W;
-  const carStart = -(width / 2 + CAR_W * k); // fully off the left edge
+  const carStart = -(width / 2 + logoW); // fully off the left edge
 
   return (
     <Animated.View
@@ -75,7 +73,7 @@ export function LoginSplash() {
             position: 'absolute',
             left: 0,
             top: 0,
-            width: TEXT_W * k,
+            width: logoW,
             height: H * k,
             opacity: text,
             transform: [{ translateY: text.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
@@ -85,9 +83,9 @@ export function LoginSplash() {
           source={CAR}
           style={{
             position: 'absolute',
-            left: TEXT_W * k,
+            left: 0,
             top: 0,
-            width: CAR_W * k,
+            width: logoW,
             height: H * k,
             opacity: car.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }),
             transform: [{ translateX: car.interpolate({ inputRange: [0, 1], outputRange: [carStart, 0] }) }],
