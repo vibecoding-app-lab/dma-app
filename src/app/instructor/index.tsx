@@ -5,7 +5,6 @@ import { Linking, Pressable, Text, View } from 'react-native';
 import { InstructorCalendar } from '@/components/InstructorCalendar';
 import { StudentsDashboard } from '@/components/StudentsDashboard';
 import { Updates } from '@/components/Updates';
-import { Logo } from '@/components/Logo';
 import { Button, Card, ErrorText, Pill, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import {
@@ -120,7 +119,6 @@ export default function InstructorHome() {
 
   return (
     <Screen>
-      <Logo width={180} />
       <Title>Hi {profile?.full_name?.split(' ')[0] ?? 'there'}</Title>
       {profile?.username ? <Subtitle>@{profile.username}</Subtitle> : null}
 

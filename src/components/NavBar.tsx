@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Logo } from '@/components/Logo';
 import { colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { unreadCounts } from '@/lib/chat';
@@ -51,8 +52,11 @@ export function NavBar({ role }: { role: 'student' | 'instructor' }) {
         ];
 
   return (
-    <SafeAreaView edges={['top']} style={{ backgroundColor: colors.brand }}>
-      <View style={{ flexDirection: 'row', paddingHorizontal: 4, paddingVertical: 6, gap: 2 }}>
+    <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+      <View style={{ alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderColor: colors.border }}>
+        <Logo width={170} />
+      </View>
+      <View style={{ flexDirection: 'row', paddingHorizontal: 4, paddingVertical: 6, gap: 2, backgroundColor: colors.brand }}>
         {items.map((it) => {
           const active = it.match(path);
           return (

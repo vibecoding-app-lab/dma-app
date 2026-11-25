@@ -7,7 +7,6 @@ import { ProgressCard } from '@/components/ProgressCard';
 import { RemarksLink } from '@/components/Remarks';
 import { RoadTestCard, roadTestStillAhead } from '@/components/RoadTestCard';
 import { Updates } from '@/components/Updates';
-import { Logo } from '@/components/Logo';
 import { Button, Card, Screen, SectionLabel, Subtitle, Title, colors } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { type Booking, bookingAction, lessonLabel, proposal, studentCanCancel } from '@/lib/booking';
@@ -134,7 +133,6 @@ export default function StudentHome() {
 
   return (
     <Screen>
-      <Logo width={180} />
       <Title>Hi {profile?.full_name?.split(' ')[0] ?? 'there'}</Title>
       {profile?.username ? <Subtitle>@{profile.username}</Subtitle> : null}
 
